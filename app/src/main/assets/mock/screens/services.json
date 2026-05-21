@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "screenId": "services",
+  "version": 1,
+  "title": "خدمات",
+  "sections": [
+    {
+      "id": "service-booking",
+      "type": "service_list",
+      "data": {
+        "title": "رزرو خدمات",
+        "items": [
+          { "title": "سرویس کامل دوچرخه", "subtitle": "تنظیم دنده، ترمز و بازبینی ایمنی", "price": "از ۹۵۰,۰۰۰ تومان" },
+          { "title": "تعویض تایر و تیوب", "subtitle": "انجام سریع در فروشگاه", "price": "از ۲۵۰,۰۰۰ تومان" },
+          { "title": "مشاوره خرید", "subtitle": "انتخاب دوچرخه بر اساس قد و مسیر", "price": "رایگان" }
+        ]
+      },
+      "layout": { "presentation": "list" },
+      "style": { "cardVariant": "compact" }
+    }
+  ]
+}

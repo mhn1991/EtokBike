@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "screenId": "home",
+  "version": 1,
+  "title": "EtokBike",
+  "sections": [
+    {
+      "id": "home-hero",
+      "type": "hero",
+      "data": {
+        "title": "دوچرخه، قطعات و خدمات تخصصی",
+        "subtitle": "خرید سبک، سریع و آماده برای اینترنت ضعیف",
+        "actionLabel": "مشاهده فروشگاه",
+        "target": "shop"
+      },
+      "layout": { "variant": "standard" },
+      "style": { "emphasis": "high" }
+    },
+    {
+      "id": "quick-actions",
+      "type": "category_grid",
+      "data": {
+        "title": "دسترسی سریع",
+        "items": [
+          { "title": "خرید دوچرخه", "subtitle": "مدل‌های شهری و کوهستان", "target": "shop" },
+          { "title": "رزرو تعمیرات", "subtitle": "سرویس، ترمز و تایر", "target": "services" },
+          { "title": "کمپینگ", "subtitle": "برنامه‌های گروهی", "target": "events" },
+          { "title": "قطعات و لوازم", "subtitle": "تایر، چراغ، کلاه", "target": "shop" }
+        ]
+      },
+      "layout": { "columns": 2 },
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "hot-offers",
+      "type": "offer_sections",
+      "data": {
+        "title": "پیشنهادهای داغ",
+        "defaultSubsection": "bicycle",
+        "subsections": [
+          {
+            "id": "bicycle",
+            "label": "دوچرخه",
+            "title": "پیشنهادهای داغ دوچرخه",
+            "items": [
+              { "title": "دوچرخه کوهستان ETX 200", "subtitle": "پیشنهاد محدود امروز", "description": "فریم آلومینیوم، ترمز دیسکی و آماده برای مسیرهای ترکیبی.", "price": "۲۸,۵۰۰,۰۰۰ تومان", "thumbnailText": "HOT", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "دوچرخه شهری E-City", "subtitle": "رفت‌وآمد روزانه", "description": "سبک، کم‌هزینه و مناسب مسیرهای کوتاه شهری.", "price": "۲۲,۰۰۰,۰۰۰ تومان", "thumbnailText": "CITY", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "دوچرخه جاده R7", "subtitle": "تمرین سرعت", "description": "فرمان خم، وزن کمتر و تایر باریک برای مسیرهای آسفالت.", "price": "۳۶,۰۰۰,۰۰۰ تومان", "thumbnailText": "ROAD", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "دوچرخه کودک ۲۰", "subtitle": "شروع ایمن", "description": "مناسب آموزش، مسیرهای کوتاه و کنترل راحت برای کودک.", "price": "۱۲,۸۰۰,۰۰۰ تومان", "thumbnailText": "20", "thumbnailColor": "#2B2C30", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "camping",
+            "label": "کمپینگ",
+            "title": "پیشنهادهای داغ کمپینگ",
+            "items": [
+              { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه همراه مربی", "description": "مسیر گروهی، برنامه سبک و مناسب شروع تجربه کمپینگ.", "price": "رزرو جایگاه", "thumbnailText": "TRIP", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "چراغ کمپ شارژی", "subtitle": "نوردهی چندحالته", "description": "قابل حمل، مناسب چادر و توقف‌های شبانه در مسیر.", "price": "۱,۱۰۰,۰۰۰ تومان", "thumbnailText": "LAMP", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "کیف ابزار سفر", "subtitle": "همراه مسیرهای طولانی", "description": "ابزارهای ضروری تعمیرات سبک برای برنامه‌های بیرون‌شهری.", "price": "۹۸۰,۰۰۰ تومان", "thumbnailText": "KIT", "thumbnailColor": "#6B1116", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "parts",
+            "label": "قطعات",
+            "title": "پیشنهادهای داغ قطعات",
+            "items": [
+              { "title": "تایر ضد پنچری", "subtitle": "سایز ۲۹ اینچ", "description": "مقاوم‌تر برای مسیرهای شهری و خاکی با آج مناسب کنترل بهتر.", "price": "۱,۹۵۰,۰۰۰ تومان", "thumbnailText": "29", "thumbnailColor": "#6B1116", "imageUrl": null },
+              { "title": "لنت ترمز دیسکی", "subtitle": "ترمزگیری نرم و مطمئن", "description": "مناسب دوچرخه‌های کوهستان و شهری مجهز به ترمز دیسکی.", "price": "۴۹۰,۰۰۰ تومان", "thumbnailText": "PAD", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "زنجیر ۱۰ سرعته", "subtitle": "تعویض دنده روان", "description": "مناسب سرویس دوره‌ای و جایگزینی زنجیر فرسوده.", "price": "۱,۱۵۰,۰۰۰ تومان", "thumbnailText": "10S", "thumbnailColor": "#D71920", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "accessories",
+            "label": "لوازم جانبی",
+            "title": "پیشنهادهای داغ لوازم جانبی",
+            "items": [
+              { "title": "چراغ جلو شارژی", "subtitle": "تخفیف ویژه مسیر شب", "description": "شارژ USB، سه حالت نور و بدنه مقاوم برای استفاده روزانه.", "price": "۸۵۰,۰۰۰ تومان", "thumbnailText": "LED", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "قفل زنجیری", "subtitle": "امنیت بالا، روکش مقاوم", "description": "قفل سنگین با روکش محافظ برای جلوگیری از خط افتادن روی بدنه.", "price": "۷۹۰,۰۰۰ تومان", "thumbnailText": "LOCK", "thumbnailColor": "#2B2C30", "imageUrl": null },
+              { "title": "کلاه ایمنی AirFit", "subtitle": "سبک با تهویه مناسب", "description": "برای دوچرخه‌سواری شهری و تمرین‌های طولانی با بند قابل تنظیم.", "price": "۱,۴۰۰,۰۰۰ تومان", "thumbnailText": "AIR", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "تلمبه کوچک همراه", "subtitle": "قابل نصب روی فریم", "description": "طراحی سبک برای همراه داشتن در مسیر و تنظیم سریع باد تایر.", "price": "۶۲۰,۰۰۰ تومان", "thumbnailText": "PSI", "thumbnailColor": "#101114", "imageUrl": null }
+            ]
+          }
+        ]
+      },
+      "layout": { "mode": "tabs", "content": "carousel" },
+      "style": { "sectionVariant": "standard", "cardVariant": "product" }
+    },
+    {
+      "id": "weekly-programs",
+      "type": "schedule_list",
+      "data": {
+        "title": "برنامه‌های این هفته",
+        "items": [
+          { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه، همراه مربی", "price": "رزرو جایگاه" },
+          { "title": "تمرین مبتدی شهری", "subtitle": "جمعه ۹ صبح - ظرفیت محدود", "price": "ثبت‌نام" }
+        ]
+      },
+      "layout": { "presentation": "list" },
+      "style": { "cardVariant": "compact" }
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "screenId": "shop",
+  "version": 1,
+  "title": "فروشگاه",
+  "sections": [
+    {
+      "id": "products",
+      "type": "product_list",
+      "data": {
+        "title": "محصولات",
+        "categoryLabel": "دسته‌بندی محصول",
+        "defaultCategory": "bikes",
+        "categories": [
+          { "id": "bikes", "label": "دوچرخه" },
+          { "id": "parts", "label": "قطعات" },
+          { "id": "accessories", "label": "لوازم جانبی" }
+        ],
+        "filtersTitle": "فیلترها",
+        "filtersCollapsedLabel": "نمایش فیلترها",
+        "filtersExpandedLabel": "بستن فیلترها",
+        "resetFiltersLabel": "حذف فیلترها",
+        "emptyStateText": "محصولی برای این دسته‌بندی و فیلترها پیدا نشد.",
+        "filters": [
+          {
+            "id": "availability",
+            "label": "موجودی",
+            "default": "all",
+            "options": [
+              { "id": "all", "label": "همه" },
+              { "id": "in_stock", "label": "موجود" },
+              { "id": "orderable", "label": "قابل سفارش" }
+            ]
+          },
+          {
+            "id": "priceBand",
+            "label": "بازه قیمت",
+            "default": "all",
+            "options": [
+              { "id": "all", "label": "همه قیمت‌ها" },
+              { "id": "under_2m", "label": "زیر ۲ میلیون" },
+              { "id": "2m_20m", "label": "۲ تا ۲۰ میلیون" },
+              { "id": "over_20m", "label": "بالای ۲۰ میلیون" }
+            ]
+          },
+          {
+            "id": "sort",
+            "label": "مرتب‌سازی",
+            "default": "recommended",
+            "options": [
+              { "id": "recommended", "label": "پیشنهادی" },
+              { "id": "price_low", "label": "ارزان‌ترین" },
+              { "id": "price_high", "label": "گران‌ترین" }
+            ]
+          }
+        ],
+        "initialItems": 3,
+        "pageSize": 3,
+        "loadMoreLabel": "نمایش محصولات بیشتر",
+        "items": [
+          { "id": "bike-city-e", "category": "bikes", "availability": "in_stock", "priceValue": 22000000, "title": "دوچرخه شهری E-City", "subtitle": "سبک و مناسب استفاده روزانه", "description": "انتخاب مناسب برای رفت‌وآمد شهری، مسیرهای کوتاه و استفاده روزمره.", "price": "۲۲,۰۰۰,۰۰۰ تومان", "thumbnailText": "CITY", "thumbnailColor": "#D71920", "imageUrl": null },
+          { "id": "bike-etx-200", "category": "bikes", "availability": "in_stock", "priceValue": 28500000, "title": "دوچرخه کوهستان ETX 200", "subtitle": "برای مسیرهای خاکی و کوهستانی", "description": "فریم مقاوم، ترمز دیسکی و فرمان پایدار برای مسیرهای ترکیبی.", "price": "۲۸,۵۰۰,۰۰۰ تومان", "thumbnailText": "MTB", "thumbnailColor": "#101114", "imageUrl": null },
+          { "id": "bike-road-r7", "category": "bikes", "availability": "orderable", "priceValue": 36000000, "title": "دوچرخه جاده R7", "subtitle": "سریع و مناسب تمرین", "description": "فرمان خم، وزن کمتر و تایر باریک برای مسیرهای آسفالت.", "price": "۳۶,۰۰۰,۰۰۰ تومان", "thumbnailText": "ROAD", "thumbnailColor": "#6B1116", "imageUrl": null },
+          { "id": "bike-kids-20", "category": "bikes", "availability": "in_stock", "priceValue": 12800000, "title": "دوچرخه کودک ۲۰", "subtitle": "ایمن و سبک", "description": "مناسب آموزش و مسیرهای کوتاه با ترمز قابل کنترل.", "price": "۱۲,۸۰۰,۰۰۰ تومان", "thumbnailText": "20", "thumbnailColor": "#2B2C30", "imageUrl": null },
+          { "id": "tire-29-puncture", "category": "parts", "availability": "in_stock", "priceValue": 1950000, "title": "تایر ضد پنچری", "subtitle": "سایز ۲۹ اینچ", "description": "مقاوم‌تر برای مسیرهای شهری و خاکی با آج مناسب کنترل بهتر.", "price": "۱,۹۵۰,۰۰۰ تومان", "thumbnailText": "29", "thumbnailColor": "#6B1116", "imageUrl": null },
+          { "id": "brake-pad-disc", "category": "parts", "availability": "in_stock", "priceValue": 490000, "title": "لنت ترمز دیسکی", "subtitle": "ترمزگیری نرم و مطمئن", "description": "مناسب دوچرخه‌های کوهستان و شهری مجهز به ترمز دیسکی.", "price": "۴۹۰,۰۰۰ تومان", "thumbnailText": "PAD", "thumbnailColor": "#101114", "imageUrl": null },
+          { "id": "chain-10s", "category": "parts", "availability": "orderable", "priceValue": 1150000, "title": "زنجیر ۱۰ سرعته", "subtitle": "تعویض دنده روان", "description": "مناسب سرویس دوره‌ای و جایگزینی زنجیر فرسوده.", "price": "۱,۱۵۰,۰۰۰ تومان", "thumbnailText": "10S", "thumbnailColor": "#D71920", "imageUrl": null },
+          { "id": "lock-chain", "category": "accessories", "availability": "in_stock", "priceValue": 790000, "title": "قفل زنجیری", "subtitle": "امنیت بالا، روکش مقاوم", "description": "قفل سنگین با روکش محافظ برای جلوگیری از خط افتادن روی بدنه.", "price": "۷۹۰,۰۰۰ تومان", "thumbnailText": "LOCK", "thumbnailColor": "#2B2C30", "imageUrl": null },
+          { "id": "helmet-air", "category": "accessories", "availability": "in_stock", "priceValue": 1400000, "title": "کلاه ایمنی AirFit", "subtitle": "سبک با تهویه مناسب", "description": "برای دوچرخه‌سواری شهری و تمرین‌های طولانی با بند قابل تنظیم.", "price": "۱,۴۰۰,۰۰۰ تومان", "thumbnailText": "AIR", "thumbnailColor": "#D71920", "imageUrl": null },
+          { "id": "pump-mini", "category": "accessories", "availability": "orderable", "priceValue": 620000, "title": "تلمبه کوچک همراه", "subtitle": "قابل نصب روی فریم", "description": "طراحی سبک برای همراه داشتن در مسیر و تنظیم سریع باد تایر.", "price": "۶۲۰,۰۰۰ تومان", "thumbnailText": "PSI", "thumbnailColor": "#101114", "imageUrl": null },
+          { "id": "gloves-grip", "category": "accessories", "availability": "in_stock", "priceValue": 580000, "title": "دستکش Grip", "subtitle": "مناسب تمرین و مسیر شهری", "description": "کف ضد لغزش و پارچه تنفس‌پذیر برای کنترل بهتر فرمان.", "price": "۵۸۰,۰۰۰ تومان", "thumbnailText": "GRIP", "thumbnailColor": "#6B1116", "imageUrl": null }
+        ]
+      },
+      "layout": { "presentation": "paged_list" },
+      "style": { "cardVariant": "product_compact" }
+    },
+    {
+      "id": "checkout-note",
+      "type": "checkout_note",
+      "data": {
+        "title": "پرداخت",
+        "subtitle": "پرداخت بانکی در نسخه بعدی فعال می‌شود. در نمونه فعلی مسیر سبد خرید و ثبت سفارش نمایش داده می‌شود."
+      },
+      "layout": {},
+      "style": { "sectionVariant": "info" }
+    }
+  ]
+}

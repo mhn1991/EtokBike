@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "appId": "etokbike",
+  "appVersion": 1,
+  "remoteConfig": {
+    "manifestUrl": ""
+  },
+  "theme": {
+    "brandName": "EtokBike",
+    "locale": "fa-IR",
+    "direction": "rtl",
+    "colors": {
+      "primary": "#D71920",
+      "background": "#FFFFFF",
+      "surface": "#F7F7F8",
+      "text": "#101114",
+      "muted": "#626368"
+    }
+  },
+  "navigation": [
+    { "id": "home", "label": "خانه", "screenId": "home" },
+    { "id": "shop", "label": "فروشگاه", "screenId": "shop" },
+    { "id": "services", "label": "خدمات", "screenId": "services" },
+    { "id": "events", "label": "برنامه‌ها", "screenId": "events" },
+    { "id": "account", "label": "حساب", "screenId": "account" }
+  ],
+  "screens": {
+    "home": { "version": 1, "asset": "mock/screens/home.json", "url": "", "checksum": "" },
+    "shop": { "version": 1, "asset": "mock/screens/shop.json", "url": "", "checksum": "" },
+    "services": { "version": 1, "asset": "mock/screens/services.json", "url": "", "checksum": "" },
+    "events": { "version": 1, "asset": "mock/screens/events.json", "url": "", "checksum": "" },
+    "account": { "version": 1, "asset": "mock/screens/account.json", "url": "", "checksum": "" }
+  }
+}

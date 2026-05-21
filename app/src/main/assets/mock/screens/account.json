@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "screenId": "account",
+  "version": 1,
+  "title": "حساب کاربری",
+  "sections": [
+    {
+      "id": "profile-summary",
+      "type": "profile_summary",
+      "data": {
+        "title": "سلام، کاربر EtokBike",
+        "subtitle": "ورود و ثبت‌نام در نسخه بعدی به سرور متصل می‌شود."
+      },
+      "layout": {},
+      "style": { "sectionVariant": "info" }
+    },
+    {
+      "id": "recent-activity",
+      "type": "activity_list",
+      "data": {
+        "title": "فعالیت‌های اخیر",
+        "items": [
+          { "title": "سفارش نمونه", "subtitle": "دوچرخه کوهستان ETX 200 - در انتظار پرداخت", "price": "۲۸,۵۰۰,۰۰۰ تومان" },
+          { "title": "رزرو سرویس", "subtitle": "سرویس کامل دوچرخه - زمان انتخاب نشده", "price": "در انتظار" },
+          { "title": "ثبت‌نام تمرین", "subtitle": "تمرین مبتدی شهری", "price": "نمونه" }
+        ]
+      },
+      "layout": { "presentation": "list" },
+      "style": { "cardVariant": "compact" }
+    }
+  ]
+}

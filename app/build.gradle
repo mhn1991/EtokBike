@@ -1,0 +1,20 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.etokbike.app'
+    compileSdkVersion 25
+
+    defaultConfig {
+        applicationId 'com.etokbike.app'
+        minSdkVersion 23
+        targetSdkVersion 25
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    lintOptions {
+        disable 'ExpiredTargetSdkVersion'
+    }
+}

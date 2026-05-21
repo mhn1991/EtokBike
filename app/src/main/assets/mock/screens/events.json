@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "screenId": "events",
+  "version": 1,
+  "title": "برنامه‌ها",
+  "sections": [
+    {
+      "id": "events-list",
+      "type": "schedule_list",
+      "data": {
+        "title": "کمپینگ و آموزش",
+        "items": [
+          { "title": "تمرین مبتدی شهری", "subtitle": "جمعه ۹ صبح - ظرفیت محدود", "price": "ثبت‌نام" },
+          { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه، همراه مربی", "price": "رزرو جایگاه" },
+          { "title": "کلاس تعمیرات پایه", "subtitle": "پنچرگیری و تنظیمات ضروری", "price": "ثبت‌نام" }
+        ]
+      },
+      "layout": { "presentation": "list" },
+      "style": { "cardVariant": "compact" }
+    }
+  ]
+}

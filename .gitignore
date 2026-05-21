@@ -1,0 +1,9 @@
+.gradle/
+.gradle-local/
+build/
+*/build/
+local.properties
+*.iml
+.idea/
+.idea/workspace.xml
+.idea/caches/
