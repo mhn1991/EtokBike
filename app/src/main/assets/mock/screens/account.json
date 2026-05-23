@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "screenId": "account",
-  "version": 2,
+  "version": 3,
   "title": "حساب کاربری",
   "sections": [
     {
@@ -50,6 +50,37 @@
               { "label": "آماده‌سازی", "detail": "محصول در انبار بررسی و بسته‌بندی می‌شود." },
               { "label": "ارسال", "detail": "پس از تحویل به پیک، کد رهگیری نمایش داده می‌شود." },
               { "label": "تحویل", "detail": "پس از دریافت سفارش توسط مشتری تکمیل می‌شود." }
+            ]
+          }
+        ]
+      },
+      "layout": {},
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "bike-profiles",
+      "type": "bike_profile_list",
+      "data": {
+        "title": "دوچرخه‌های من",
+        "items": [
+          {
+            "title": "ETX 200",
+            "subtitle": "دوچرخه کوهستان - استفاده هفتگی",
+            "fields": [
+              { "label": "سایز فریم", "value": "M" },
+              { "label": "سایز تایر", "value": "۲۹ اینچ" },
+              { "label": "ترمز", "value": "دیسکی" },
+              { "label": "آخرین سرویس", "value": "۱۴۰۵/۰۲/۲۰" }
+            ]
+          },
+          {
+            "title": "E-City",
+            "subtitle": "دوچرخه شهری - رفت‌وآمد روزانه",
+            "fields": [
+              { "label": "سایز فریم", "value": "L" },
+              { "label": "سایز تایر", "value": "۷۰۰C" },
+              { "label": "ترمز", "value": "لقمه‌ای" },
+              { "label": "یادآوری بعدی", "value": "سرویس فصلی" }
             ]
           }
         ]

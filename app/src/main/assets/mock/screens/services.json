@@ -1,9 +1,26 @@
 {
   "schemaVersion": 1,
   "screenId": "services",
-  "version": 2,
+  "version": 4,
   "title": "خدمات",
   "sections": [
+    {
+      "id": "booking-form",
+      "type": "service_booking_form",
+      "data": {
+        "title": "رزرو زمان سرویس",
+        "serviceLabel": "نوع خدمات",
+        "bikeLabel": "دوچرخه",
+        "timeLabel": "زمان پیشنهادی",
+        "services": [ "سرویس کامل", "پنچرگیری فوری", "تنظیم دنده و ترمز", "بازبینی قبل از سفر", "مشاوره سایز و خرید" ],
+        "bikes": [ "ETX 200 - علی رضایی", "دوچرخه شهری E-City", "ثبت دوچرخه جدید" ],
+        "timeSlots": [ "امروز ۱۶:۰۰", "فردا ۱۰:۳۰", "فردا ۱۸:۰۰", "پنجشنبه ۱۲:۰۰" ],
+        "problemPlaceholder": "مشکل، صدای غیرعادی یا درخواست خاص را بنویسید. امکان ارسال عکس در نسخه بعدی اضافه می‌شود.",
+        "submitLabel": "ثبت درخواست سرویس"
+      },
+      "layout": {},
+      "style": { "sectionVariant": "form" }
+    },
     {
       "id": "service-booking",
       "type": "offer_sections",
@@ -41,6 +58,48 @@
         ]
       },
       "layout": { "mode": "tabs", "content": "carousel" },
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "repair-status",
+      "type": "status_tracker",
+      "data": {
+        "title": "پیگیری تعمیرات فعال",
+        "items": [
+          {
+            "id": "repair-203",
+            "title": "تعمیر ET-R203",
+            "subtitle": "تعویض لنت و تنظیم ترمز",
+            "status": "در انتظار تایید مشتری",
+            "currentLocation": "وضعیت فعلی: برآورد هزینه برای مشتری ارسال شده است",
+            "expandLabel": "مشاهده روند تعمیر",
+            "collapseLabel": "بستن روند تعمیر",
+            "currentStep": 2,
+            "steps": [
+              { "label": "دریافت دوچرخه", "detail": "دوچرخه در فروشگاه ثبت شد." },
+              { "label": "عیب‌یابی", "detail": "لنت عقب فرسوده و کابل ترمز نیازمند تنظیم است." },
+              { "label": "تایید مشتری", "detail": "هزینه پیشنهادی برای مشتری ارسال شده است." },
+              { "label": "تعمیر", "detail": "پس از تایید مشتری انجام می‌شود." },
+              { "label": "آماده تحویل", "detail": "پس از تست نهایی اعلام می‌شود." }
+            ]
+          }
+        ]
+      },
+      "layout": {},
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "more-services",
+      "type": "business_info",
+      "data": {
+        "title": "خدمات تکمیلی",
+        "items": [
+          { "title": "بازبینی دوچرخه دست دوم", "subtitle": "قبل از خرید دوچرخه کارکرده", "description": "بررسی فریم، چرخ‌ها، ترمز، دنده و هزینه احتمالی تعمیر.", "price": "رزرو بازبینی" },
+          { "title": "پیکاپ و تحویل تعمیرات", "subtitle": "برای مناطق نزدیک فروشگاه", "description": "دریافت دوچرخه از مشتری و تحویل پس از سرویس.", "price": "هماهنگی" },
+          { "title": "پلن سرویس فصلی", "subtitle": "مناسب مشتری‌های استفاده روزانه", "description": "یادآوری سرویس، تخفیف قطعات مصرفی و بازبینی ایمنی دوره‌ای.", "price": "عضویت" }
+        ]
+      },
+      "layout": {},
       "style": { "cardVariant": "compact" }
     }
   ]

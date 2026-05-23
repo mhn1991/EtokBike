@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "screenId": "cart",
+  "version": 2,
+  "title": "سبد خرید",
+  "sections": [
+    {
+      "id": "cart-summary",
+      "type": "cart_summary",
+      "data": {
+        "title": "مرور سفارش",
+        "emptyStateText": "سبد خرید شما خالی است.",
+        "totalLabel": "جمع پرداخت",
+        "total": "۳۰,۴۵۰,۰۰۰ تومان",
+        "checkoutLabel": "ادامه ثبت سفارش",
+        "items": [
+          { "title": "دوچرخه کوهستان ETX 200", "subtitle": "تعداد ۱ - موجود در انبار", "description": "تحویل فروشگاه یا ارسال شهری", "price": "۲۸,۵۰۰,۰۰۰ تومان" },
+          { "title": "تایر ضد پنچری", "subtitle": "تعداد ۱ - سایز ۲۹ اینچ", "description": "پیشنهاد مناسب برای ETX 200", "price": "۱,۹۵۰,۰۰۰ تومان" }
+        ]
+      },
+      "layout": {},
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "delivery-options",
+      "type": "business_info",
+      "data": {
+        "title": "روش دریافت",
+        "items": [
+          { "title": "تحویل در فروشگاه", "subtitle": "آماده‌سازی و تست قبل از تحویل", "description": "مناسب دوچرخه و خریدهای نیازمند تنظیم اولیه.", "price": "رایگان" },
+          { "title": "ارسال شهری", "subtitle": "هماهنگی زمان تحویل با پیامک", "description": "پس از ثبت سفارش، وضعیت ارسال در حساب کاربری نمایش داده می‌شود.", "price": "محاسبه در پرداخت" }
+        ]
+      },
+      "layout": {},
+      "style": { "cardVariant": "compact" }
+    }
+  ]
+}

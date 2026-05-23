@@ -3,18 +3,22 @@ plugins {
 }
 
 android {
-    namespace 'com.etokbike.app'
-    compileSdkVersion 25
-
-    defaultConfig {
-        applicationId 'com.etokbike.app'
-        minSdkVersion 23
-        targetSdkVersion 31
-        versionCode 1
-        versionName '0.1.0'
+    namespace = 'com.etokbike.app'
+    compileSdk {
+        version = release(36) {
+            it.minorApiLevel = 1
+        }
     }
 
-    lintOptions {
-        disable 'GradleCompatible'
+    defaultConfig {
+        applicationId = 'com.etokbike.app'
+        minSdk = 23
+        targetSdk = 36
+        versionCode = 1
+        versionName = '0.1.0'
+    }
+
+    lint {
+        disable += 'GradleCompatible'
     }
 }
