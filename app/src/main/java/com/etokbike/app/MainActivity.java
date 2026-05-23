@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.ArrayAdapter;
 import android.widget.AdapterView;
@@ -55,13 +56,18 @@ public class MainActivity extends Activity {
     private final Map<String, Integer> visibleItemCounts = new HashMap<>();
     private final Map<String, String> selectedCategories = new HashMap<>();
     private final Map<String, String> selectedOfferSections = new HashMap<>();
+    private final Map<String, String> selectedPrograms = new HashMap<>();
+    private final Map<String, String> selectedMessageDepartments = new HashMap<>();
     private final Map<String, String> selectedFilters = new HashMap<>();
     private final Map<String, Boolean> expandedFilterSections = new HashMap<>();
+    private final Map<String, Boolean> expandedAccountSections = new HashMap<>();
     private ConfigDatabase configDatabase;
     private JSONObject config;
     private LinearLayout content;
     private LinearLayout nav;
+    private Button cartButton;
     private String currentScreen = "home";
+    private JSONObject activeProgramDetail;
     private int cartCount = 0;
 
     @Override
@@ -90,18 +96,21 @@ public class MainActivity extends Activity {
     }
 
     private JSONObject loadManifest() throws Exception {
+        JSONObject bundledManifest = new JSONObject(readAsset(BUNDLED_MANIFEST_PATH));
+        validateManifest(bundledManifest);
+
         String cachedManifest = configDatabase.getManifestJson();
         if (cachedManifest != null) {
             try {
                 JSONObject manifest = new JSONObject(cachedManifest);
                 validateManifest(manifest);
-                return manifest;
+                if (manifest.optInt("appVersion", 0) >= bundledManifest.optInt("appVersion", 0)) {
+                    return manifest;
+                }
             } catch (Exception ignored) {
             }
         }
 
-        JSONObject bundledManifest = new JSONObject(readAsset(BUNDLED_MANIFEST_PATH));
-        validateManifest(bundledManifest);
         configDatabase.saveManifest(bundledManifest, bundledManifest.optInt("appVersion", 0));
         return bundledManifest;
     }
@@ -263,7 +272,7 @@ public class MainActivity extends Activity {
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(dp(8), dp(8), dp(8), dp(8));
-        nav.setBackgroundColor(WHITE);
+        nav.setBackground(rounded(WHITE, 0, BORDER, 1));
         root.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
 
         return root;
@@ -279,9 +288,22 @@ public class MainActivity extends Activity {
         TextView logo = text("EtokBike", 22, WHITE, true);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button cart = button("سبد خرید", true);
-        cart.setOnClickListener(v -> Toast.makeText(this, "سبد خرید نمونه: " + cartCount + " مورد", Toast.LENGTH_SHORT).show());
-        bar.addView(cart, new LinearLayout.LayoutParams(-2, dp(44)));
+        Button messages = button("(۲)", true);
+        messages.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_message_24, 0, 0, 0);
+        messages.setCompoundDrawablePadding(dp(6));
+        messages.setOnClickListener(v -> renderScreen("messages"));
+        bar.addView(messages, new LinearLayout.LayoutParams(dp(78), dp(44)));
+
+        View actionSpacer = new View(this);
+        bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(12), 1));
+
+        cartButton = button("", true);
+        cartButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_cart_24, 0, 0, 0);
+        cartButton.setCompoundDrawablePadding(dp(6));
+        updateCartButton();
+        cartButton.setOnClickListener(v -> Toast.makeText(this, "سبد خرید نمونه: " + cartCount + " مورد", Toast.LENGTH_SHORT).show());
+        LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(78), dp(44));
+        bar.addView(cartButton, cartParams);
         return bar;
     }
 
@@ -298,9 +320,11 @@ public class MainActivity extends Activity {
                 tab.setGravity(Gravity.CENTER);
                 tab.setSingleLine(true);
                 tab.setEllipsize(TextUtils.TruncateAt.END);
-                tab.setBackgroundColor(WHITE);
+                tab.setBackground(selected ? rounded(SURFACE, 20, 0, 0) : rounded(WHITE, 20, 0, 0));
                 tab.setOnClickListener(v -> renderScreen(screen));
-                nav.addView(tab, new LinearLayout.LayoutParams(0, -1, 1));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
+                params.setMargins(dp(2), dp(0), dp(2), dp(0));
+                nav.addView(tab, params);
             }
         } catch (Exception e) {
             Toast.makeText(this, "خطا در نمایش ناوبری", Toast.LENGTH_SHORT).show();
@@ -308,6 +332,11 @@ public class MainActivity extends Activity {
     }
 
     private void renderScreen(String screenId) {
+        if ("program-detail".equals(screenId)) {
+            renderProgramDetailScreen();
+            return;
+        }
+
         JSONObject screen = screens.get(screenId);
         if (screen == null) return;
 
@@ -331,9 +360,43 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void renderProgramDetailScreen() {
+        if (activeProgramDetail == null) {
+            renderScreen("events");
+            return;
+        }
+
+        currentScreen = "program-detail";
+        content.removeAllViews();
+        renderNavigation();
+
+        try {
+            Button back = button("بازگشت به برنامه‌ها", false);
+            back.setOnClickListener(v -> renderScreen("events"));
+            content.addView(back, new LinearLayout.LayoutParams(-1, dp(44)));
+            addSpace(content, 12);
+
+            TextView title = text(activeProgramDetail.getString("title"), 28, BLACK, true);
+            title.setGravity(Gravity.RIGHT);
+            content.addView(title, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(content, 14);
+
+            content.addView(programDetail(activeProgramDetail));
+            if (isFinishedProgram(activeProgramDetail) && activeProgramDetail.optJSONArray("gallery") != null && activeProgramDetail.optJSONArray("gallery").length() > 0) {
+                addSpace(content, 14);
+                content.addView(sectionTitle(activeProgramDetail.optString("galleryTitle", "گالری برنامه")));
+                content.addView(gallery(activeProgramDetail.getJSONArray("gallery")));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "خطا در نمایش برنامه", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void renderSection(JSONObject section) throws Exception {
         String type = section.getString("type");
         JSONObject data = sectionData(section);
+        JSONObject layout = section.optJSONObject("layout");
+        String presentation = layout == null ? "" : layout.optString("presentation", layout.optString("content", ""));
         if ("hero".equals(type)) {
             content.addView(hero(data));
         } else if ("category_grid".equals(type)) {
@@ -344,12 +407,29 @@ public class MainActivity extends Activity {
             content.addView(horizontalCards(data.getJSONArray("items")));
         } else if ("offer_sections".equals(type)) {
             content.addView(offerSections(data));
+        } else if ("program_sections".equals(type)) {
+            content.addView(programSections(section));
         } else if ("product_list".equals(type)) {
             content.addView(sectionTitle(data.getString("title")));
             content.addView(productList(data));
         } else if ("service_list".equals(type) || "schedule_list".equals(type) || "activity_list".equals(type)) {
             content.addView(sectionTitle(data.getString("title")));
-            content.addView(listCards(data.getJSONArray("items")));
+            if ("carousel".equals(presentation)) {
+                content.addView(horizontalCards(data.getJSONArray("items")));
+            } else {
+                content.addView(listCards(data.getJSONArray("items")));
+            }
+        } else if ("client_details".equals(type)) {
+            content.addView(sectionTitle(data.getString("title")));
+            content.addView(clientDetails(data));
+        } else if ("purchase_history".equals(type)) {
+            content.addView(sectionTitle(data.getString("title")));
+            content.addView(accountList(data.getJSONArray("items")));
+        } else if ("ongoing_purchase".equals(type)) {
+            content.addView(sectionTitle(data.getString("title")));
+            content.addView(ongoingPurchases(section));
+        } else if ("message_center".equals(type)) {
+            content.addView(messageCenter(section));
         } else if ("checkout_note".equals(type) || "profile_summary".equals(type)) {
             content.addView(infoPanel(data));
         }
@@ -430,8 +510,6 @@ public class MainActivity extends Activity {
             }
         }
 
-        wrap.addView(text(selectedSubsection.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(wrap, 6);
         wrap.addView(horizontalCards(selectedSubsection.getJSONArray("items")));
         return wrap;
     }
@@ -463,6 +541,320 @@ public class MainActivity extends Activity {
 
         scroll.addView(row);
         return scroll;
+    }
+
+    private View programSections(JSONObject section) throws Exception {
+        JSONObject data = sectionData(section);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        String key = currentScreen + ":" + section.optString("id", data.optString("title", "programs"));
+
+        wrap.addView(sectionTitle(data.getString("title")));
+        JSONArray subsections = data.getJSONArray("subsections");
+        String selected = selectedOfferSections.containsKey(key)
+                ? selectedOfferSections.get(key)
+                : data.optString("defaultSubsection", subsections.getJSONObject(0).getString("id"));
+        wrap.addView(offerSubsectionTabs(subsections, key, selected));
+        addSpace(wrap, 8);
+
+        JSONObject selectedSubsection = subsections.getJSONObject(0);
+        for (int i = 0; i < subsections.length(); i++) {
+            JSONObject subsection = subsections.getJSONObject(i);
+            if (subsection.getString("id").equals(selected)) {
+                selectedSubsection = subsection;
+                break;
+            }
+        }
+
+        List<JSONObject> items = sortedPrograms(selectedSubsection.getJSONArray("items"));
+        wrap.addView(programCards(items, key));
+
+        return wrap;
+    }
+
+    private List<JSONObject> sortedPrograms(JSONArray source) throws Exception {
+        List<JSONObject> items = new ArrayList<>();
+        for (int i = 0; i < source.length(); i++) {
+            items.add(source.getJSONObject(i));
+        }
+        Collections.sort(items, (left, right) -> {
+            boolean leftFuture = isFutureProgram(left);
+            boolean rightFuture = isFutureProgram(right);
+            if (leftFuture != rightFuture) {
+                return leftFuture ? -1 : 1;
+            }
+            int compare = left.optString("dateValue", "").compareTo(right.optString("dateValue", ""));
+            return leftFuture ? compare : -compare;
+        });
+        return items;
+    }
+
+    private View programCards(List<JSONObject> items, String key) throws Exception {
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < items.size(); i++) {
+            View card = programCard(items.get(i), key);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(dp(0), dp(5), dp(0), dp(7));
+            list.addView(card, params);
+        }
+        return list;
+    }
+
+    private View programCard(JSONObject item, String key) throws Exception {
+        LinearLayout card = panel(WHITE);
+        card.setBackgroundColor(WHITE);
+        String id = item.getString("id");
+        card.setOnClickListener(v -> {
+            selectedPrograms.put(key, id);
+            activeProgramDetail = item;
+            renderScreen("program-detail");
+        });
+
+        card.addView(thumbnail(item, dp(92)), new LinearLayout.LayoutParams(-1, dp(92)));
+        addSpace(card, 9);
+        TextView title = text(item.getString("title"), 16, BLACK, true);
+        title.setMaxLines(2);
+        card.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 4);
+        card.addView(text(item.getString("dateLabel"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 4);
+        card.addView(text(item.optString("statusLabel", ""), 13, isFutureProgram(item) ? RED : MUTED, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        Button action = button(isFutureProgram(item) ? item.optString("bookLabel", "رزرو برنامه") : item.optString("viewLabel", "مشاهده برنامه"), false);
+        action.setOnClickListener(v -> {
+            selectedPrograms.put(key, id);
+            activeProgramDetail = item;
+            renderScreen("program-detail");
+        });
+        card.addView(action, new LinearLayout.LayoutParams(-1, dp(42)));
+        return card;
+    }
+
+    private View programDetail(JSONObject item) throws Exception {
+        LinearLayout card = panel(SURFACE);
+        card.addView(text(item.optString("adTitle", item.getString("title")), 18, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 7);
+        card.addView(text(item.optString("advertisement", item.optString("description", "")), 14, Color.rgb(70, 71, 76), false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 9);
+        card.addView(text(item.getString("dateLabel") + " · " + item.optString("statusLabel", ""), 13, isFutureProgram(item) ? RED : MUTED, true), new LinearLayout.LayoutParams(-1, -2));
+
+        JSONArray details = item.optJSONArray("details");
+        if (details != null && details.length() > 0) {
+            addSpace(card, 10);
+            for (int i = 0; i < details.length(); i++) {
+                card.addView(text("• " + details.getString(i), 13, BLACK, false), new LinearLayout.LayoutParams(-1, -2));
+                if (i < details.length() - 1) addSpace(card, 4);
+            }
+        }
+
+        if (isFutureProgram(item)) {
+            addSpace(card, 12);
+            Button book = button(item.optString("bookLabel", "رزرو برنامه"), true);
+            book.setOnClickListener(v -> Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show());
+            card.addView(book, new LinearLayout.LayoutParams(-1, dp(44)));
+        }
+        return card;
+    }
+
+    private View gallery(JSONArray photos) throws Exception {
+        LinearLayout gallery = new LinearLayout(this);
+        gallery.setOrientation(LinearLayout.VERTICAL);
+
+        JSONObject featured = photos.getJSONObject(0);
+        gallery.addView(galleryPhoto(featured, true), new LinearLayout.LayoutParams(-1, dp(220)));
+
+        if (photos.length() == 1) {
+            return gallery;
+        }
+
+        addSpace(gallery, 10);
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        int index = 1;
+        while (index < photos.length()) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int col = 0; col < 2 && index < photos.length(); col++, index++) {
+                JSONObject photo = photos.getJSONObject(index);
+                View tile = galleryPhoto(photo, false);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(150), 1);
+                params.setMargins(dp(4), dp(4), dp(4), dp(4));
+                row.addView(tile, params);
+            }
+            grid.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+        gallery.addView(grid);
+        return gallery;
+    }
+
+    private View galleryPhoto(JSONObject photo, boolean featured) throws Exception {
+        LinearLayout tile = new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.BOTTOM | Gravity.RIGHT);
+        tile.setPadding(dp(12), dp(12), dp(12), dp(12));
+        tile.setBackground(rounded(photo.optString("thumbnailColor", "#101114"), 10, 0, 0));
+
+        TextView marker = text(photo.optString("thumbnailText", "PHOTO"), featured ? 28 : 18, WHITE, true);
+        marker.setGravity(Gravity.RIGHT);
+        tile.addView(marker, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        String captionValue = photo.optString("caption", "");
+        if (!captionValue.isEmpty()) {
+            TextView caption = text(captionValue, featured ? 15 : 12, WHITE, true);
+            caption.setMaxLines(featured ? 2 : 3);
+            caption.setEllipsize(TextUtils.TruncateAt.END);
+            tile.addView(caption, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return tile;
+    }
+
+    private View compactGallery(JSONArray photos) throws Exception {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < photos.length(); i++) {
+            JSONObject photo = photos.getJSONObject(i);
+            LinearLayout item = panel(WHITE);
+            item.addView(thumbnail(photo, dp(112)), new LinearLayout.LayoutParams(-1, dp(112)));
+            addSpace(item, 6);
+            TextView caption = text(photo.optString("caption", ""), 12, MUTED, false);
+            caption.setMaxLines(2);
+            caption.setEllipsize(TextUtils.TruncateAt.END);
+            item.addView(caption, new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(160), dp(190));
+            params.setMargins(dp(6), dp(4), dp(6), dp(4));
+            row.addView(item, params);
+        }
+        scroll.addView(row);
+        return scroll;
+    }
+
+    private boolean isFutureProgram(JSONObject item) {
+        return "future".equals(item.optString("programState", ""));
+    }
+
+    private boolean isFinishedProgram(JSONObject item) {
+        return "finished".equals(item.optString("programState", ""));
+    }
+
+    private View messageCenter(JSONObject section) throws Exception {
+        JSONObject data = sectionData(section);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        String key = currentScreen + ":" + section.optString("id", data.optString("title", "messages"));
+
+        wrap.addView(sectionTitle(data.getString("title")));
+        wrap.addView(infoPanel(data.getJSONObject("summary")));
+        addSpace(wrap, 12);
+
+        JSONArray departments = data.getJSONArray("departments");
+        String selected = selectedMessageDepartments.containsKey(key)
+                ? selectedMessageDepartments.get(key)
+                : data.optString("defaultDepartment", departments.getJSONObject(0).getString("id"));
+        JSONObject department = departments.getJSONObject(0);
+        for (int i = 0; i < departments.length(); i++) {
+            JSONObject candidate = departments.getJSONObject(i);
+            if (candidate.getString("id").equals(selected)) {
+                department = candidate;
+                break;
+            }
+        }
+
+        wrap.addView(messageThread(department));
+        addSpace(wrap, 12);
+        wrap.addView(messageComposer(department, departments, key, selected));
+        return wrap;
+    }
+
+    private View departmentDropdown(JSONArray departments, String key, String selected) throws Exception {
+        LinearLayout box = panel(SURFACE);
+        box.addView(text("دسته‌بندی پیام", 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(box, 6);
+
+        List<String> labels = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
+        int selectedIndex = 0;
+        for (int i = 0; i < departments.length(); i++) {
+            JSONObject department = departments.getJSONObject(i);
+            String id = department.getString("id");
+            String unread = department.optString("unreadLabel", "");
+            ids.add(id);
+            labels.add(unread.isEmpty() ? department.getString("title") : department.getString("title") + " - " + unread);
+            if (id.equals(selected)) {
+                selectedIndex = i;
+            }
+        }
+
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(selectedIndex);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String next = ids.get(position);
+                if (!next.equals(selectedMessageDepartments.get(key)) && !next.equals(selected)) {
+                    selectedMessageDepartments.put(key, next);
+                    renderScreen(currentScreen);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        box.addView(spinner, new LinearLayout.LayoutParams(-1, dp(48)));
+        return box;
+    }
+
+    private View messageThread(JSONObject department) throws Exception {
+        LinearLayout card = panel(SURFACE);
+        card.addView(text(department.getString("threadTitle"), 18, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        JSONArray messages = department.getJSONArray("messages");
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.getJSONObject(i);
+            LinearLayout bubble = panel("client".equals(message.optString("sender", "")) ? WHITE : Color.rgb(236, 236, 238));
+            bubble.addView(text(message.getString("label"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+            addSpace(bubble, 3);
+            bubble.addView(text(message.getString("text"), 14, BLACK, false), new LinearLayout.LayoutParams(-1, -2));
+            addSpace(bubble, 3);
+            bubble.addView(text(message.optString("time", ""), 11, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(dp(0), dp(4), dp(0), dp(6));
+            card.addView(bubble, params);
+        }
+        return card;
+    }
+
+    private View messageComposer(JSONObject department, JSONArray departments, String key, String selected) throws Exception {
+        LinearLayout card = panel(WHITE);
+        card.addView(text(department.optString("composerTitle", "ارسال پیام"), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        card.addView(departmentDropdown(departments, key, selected), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 10);
+
+        EditText input = new EditText(this);
+        input.setTextSize(14);
+        input.setTextColor(BLACK);
+        input.setHint(department.optString("placeholder", "پیام خود را بنویسید"));
+        input.setGravity(Gravity.RIGHT);
+        input.setMinLines(3);
+        input.setBackground(rounded(SURFACE, 8, BORDER, 1));
+        input.setPadding(dp(12), dp(8), dp(12), dp(8));
+        card.addView(input, new LinearLayout.LayoutParams(-1, dp(108)));
+        addSpace(card, 10);
+
+        Button send = button(department.optString("sendLabel", "ارسال پیام"), true);
+        send.setOnClickListener(v -> {
+            input.setText("");
+            Toast.makeText(this, "پیام برای " + department.optString("title", "واحد پشتیبانی") + " ثبت شد", Toast.LENGTH_SHORT).show();
+        });
+        card.addView(send, new LinearLayout.LayoutParams(-1, dp(44)));
+        return card;
     }
 
     private View productList(JSONObject section) throws Exception {
@@ -720,6 +1112,109 @@ public class MainActivity extends Activity {
         return list;
     }
 
+    private View clientDetails(JSONObject section) throws Exception {
+        LinearLayout card = panel(SURFACE);
+        JSONArray fields = section.getJSONArray("fields");
+        for (int i = 0; i < fields.length(); i++) {
+            JSONObject field = fields.getJSONObject(i);
+            card.addView(text(field.getString("label"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+            addSpace(card, 2);
+            card.addView(text(field.getString("value"), 15, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+            if (i < fields.length() - 1) addSpace(card, 10);
+        }
+        return card;
+    }
+
+    private View accountList(JSONArray items) throws Exception {
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            View card = accountCard(item);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(dp(0), dp(5), dp(0), dp(7));
+            list.addView(card, params);
+        }
+        return list;
+    }
+
+    private View ongoingPurchases(JSONObject section) throws Exception {
+        JSONObject data = sectionData(section);
+        JSONArray items = data.getJSONArray("items");
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+
+        if (items.length() == 0) {
+            list.addView(infoText(data.optString("emptyStateText", "")));
+            return list;
+        }
+
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            String key = currentScreen + ":" + section.optString("id", data.optString("title", "ongoing")) + ":" + item.optString("id", i + "");
+            View card = ongoingPurchaseCard(item, key);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(dp(0), dp(5), dp(0), dp(7));
+            list.addView(card, params);
+        }
+        return list;
+    }
+
+    private View accountCard(JSONObject item) throws Exception {
+        LinearLayout card = panel(WHITE);
+        card.addView(text(item.getString("title"), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 5);
+        card.addView(text(item.getString("subtitle"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        String description = item.optString("description", "");
+        if (!description.isEmpty()) {
+            addSpace(card, 5);
+            card.addView(text(description, 12, Color.rgb(70, 71, 76), false), new LinearLayout.LayoutParams(-1, -2));
+        }
+        addSpace(card, 8);
+        card.addView(text(item.optString("price", ""), 14, RED, true), new LinearLayout.LayoutParams(-1, -2));
+        return card;
+    }
+
+    private View ongoingPurchaseCard(JSONObject item, String key) throws Exception {
+        LinearLayout card = panel(WHITE);
+        card.addView(text(item.getString("title"), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 5);
+        card.addView(text(item.getString("subtitle"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        card.addView(text(item.optString("status", ""), 14, RED, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 10);
+
+        boolean expanded = expandedAccountSections.containsKey(key) && expandedAccountSections.get(key);
+        Button toggle = button(expanded ? item.optString("collapseLabel", "بستن وضعیت") : item.optString("expandLabel", "مشاهده وضعیت"), false);
+        toggle.setOnClickListener(v -> {
+            expandedAccountSections.put(key, !expanded);
+            renderScreen(currentScreen);
+        });
+        card.addView(toggle, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        if (expanded) {
+            addSpace(card, 12);
+            card.addView(text(item.optString("currentLocation", ""), 13, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+            addSpace(card, 8);
+            JSONArray steps = item.getJSONArray("steps");
+            int currentStep = item.optInt("currentStep", 0);
+            for (int i = 0; i < steps.length(); i++) {
+                JSONObject step = steps.getJSONObject(i);
+                boolean active = i == currentStep;
+                boolean done = i < currentStep;
+                String prefix = done ? "✓ " : active ? "• " : "○ ";
+                int color = active ? RED : done ? BLACK : MUTED;
+                card.addView(text(prefix + step.getString("label"), 14, color, active || done), new LinearLayout.LayoutParams(-1, -2));
+                String detail = step.optString("detail", "");
+                if (!detail.isEmpty()) {
+                    card.addView(text(detail, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+                }
+                if (i < steps.length() - 1) addSpace(card, 8);
+            }
+        }
+        return card;
+    }
+
     private View smallCard(JSONObject item, boolean navigable) throws Exception {
         LinearLayout card = panel(SURFACE);
         card.addView(text(item.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
@@ -773,6 +1268,7 @@ public class MainActivity extends Activity {
         Button action = button("افزودن / رزرو", false);
         action.setOnClickListener(v -> {
             cartCount++;
+            updateCartButton();
             Toast.makeText(this, "به سبد نمونه اضافه شد", Toast.LENGTH_SHORT).show();
         });
         card.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
@@ -850,9 +1346,20 @@ public class MainActivity extends Activity {
         button.setTextSize(14);
         button.setAllCaps(false);
         button.setTextColor(filled ? WHITE : BLACK);
-        button.setBackgroundColor(filled ? RED : Color.rgb(238, 238, 240));
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(dp(12), dp(0), dp(12), dp(0));
+        button.setBackground(rounded(filled ? RED : Color.rgb(238, 238, 240), 8, filled ? RED : BORDER, 1));
         button.setGravity(Gravity.CENTER);
         return button;
+    }
+
+    private void updateCartButton() {
+        if (cartButton != null) {
+            cartButton.setText("(" + cartCount + ")");
+        }
     }
 
     private void addSpace(LinearLayout parent, int dp) {

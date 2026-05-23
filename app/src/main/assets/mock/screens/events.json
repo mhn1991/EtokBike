@@ -1,21 +1,169 @@
 {
   "schemaVersion": 1,
   "screenId": "events",
-  "version": 1,
+  "version": 3,
   "title": "برنامه‌ها",
   "sections": [
     {
       "id": "events-list",
-      "type": "schedule_list",
+      "type": "program_sections",
       "data": {
         "title": "کمپینگ و آموزش",
-        "items": [
-          { "title": "تمرین مبتدی شهری", "subtitle": "جمعه ۹ صبح - ظرفیت محدود", "price": "ثبت‌نام" },
-          { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه، همراه مربی", "price": "رزرو جایگاه" },
-          { "title": "کلاس تعمیرات پایه", "subtitle": "پنچرگیری و تنظیمات ضروری", "price": "ثبت‌نام" }
+        "defaultSubsection": "rides",
+        "subsections": [
+          {
+            "id": "rides",
+            "label": "رکاب‌زنی",
+            "title": "برنامه‌های رکاب‌زنی",
+            "items": [
+              {
+                "id": "ride-beginner-1403-10-28",
+                "title": "تمرین مبتدی شهری",
+                "subtitle": "مسیر کوتاه شهری با مربی",
+                "dateValue": "2026-06-05",
+                "dateLabel": "جمعه ۱۵ خرداد ۱۴۰۵، ساعت ۹",
+                "programState": "future",
+                "statusLabel": "برنامه آینده",
+                "bookLabel": "رزرو برنامه",
+                "adTitle": "تمرین شهری برای شروع مطمئن",
+                "advertisement": "یک برنامه سبک برای کسانی که می‌خواهند رکاب‌زنی شهری را با همراهی مربی شروع کنند.",
+                "details": [ "سطح: مبتدی", "مدت برنامه: ۹۰ دقیقه", "محل شروع: فروشگاه مرکزی EtokBike", "ظرفیت باقی‌مانده: ۶ نفر" ],
+                "thumbnailText": "RIDE",
+                "thumbnailColor": "#D71920",
+                "imageUrl": null
+              },
+              {
+                "id": "ride-suburb-1403-11-08",
+                "title": "مسیر نیم‌روزه اطراف شهر",
+                "subtitle": "رکاب‌زنی گروهی با لیدر مسیر",
+                "dateValue": "2026-06-20",
+                "dateLabel": "شنبه ۳۰ خرداد ۱۴۰۵، ساعت ۸",
+                "programState": "future",
+                "statusLabel": "برنامه آینده",
+                "bookLabel": "رزرو جایگاه",
+                "adTitle": "نیم‌روز رکاب‌زنی خارج از شهر",
+                "advertisement": "مسیر سبک بیرون‌شهری برای دوچرخه‌سوارهای نیمه‌حرفه‌ای با توقف‌های کوتاه و پشتیبانی گروه.",
+                "details": [ "سطح: متوسط", "مسافت تقریبی: ۲۸ کیلومتر", "همراه داشتن کلاه الزامی است", "ظرفیت باقی‌مانده: ۴ نفر" ],
+                "thumbnailText": "ROAD",
+                "thumbnailColor": "#101114",
+                "imageUrl": null
+              },
+              {
+                "id": "ride-park-1403-08-12",
+                "title": "رکاب صبحگاهی پارک",
+                "subtitle": "برنامه سبک داخل پارک",
+                "dateValue": "2026-04-18",
+                "dateLabel": "شنبه ۲۹ فروردین ۱۴۰۵، ساعت ۷",
+                "programState": "finished",
+                "statusLabel": "برنامه برگزار شده",
+                "viewLabel": "مشاهده برنامه",
+                "adTitle": "گزارش رکاب صبحگاهی پارک",
+                "advertisement": "این برنامه با حضور اعضای EtokBike برگزار شد و روی کنترل سرعت، فاصله ایمن و رکاب‌زنی گروهی تمرکز داشت.",
+                "details": [ "تعداد شرکت‌کنندگان: ۱۸ نفر", "مسافت طی‌شده: ۱۲ کیلومتر", "وضعیت: پایان یافته" ],
+                "galleryTitle": "گالری رکاب صبحگاهی",
+                "gallery": [
+                  { "thumbnailText": "START", "thumbnailColor": "#D71920", "caption": "شروع برنامه از ورودی پارک", "imageUrl": null },
+                  { "thumbnailText": "GROUP", "thumbnailColor": "#101114", "caption": "تمرین حرکت گروهی", "imageUrl": null },
+                  { "thumbnailText": "FINISH", "thumbnailColor": "#6B1116", "caption": "پایان مسیر و جمع‌بندی مربی", "imageUrl": null }
+                ],
+                "thumbnailText": "AM",
+                "thumbnailColor": "#2B2C30",
+                "imageUrl": null
+              }
+            ]
+          },
+          {
+            "id": "camping",
+            "label": "کمپینگ",
+            "title": "برنامه‌های کمپینگ",
+            "items": [
+              {
+                "id": "camp-weekend-1403-11-01",
+                "title": "تور کمپینگ آخر هفته",
+                "subtitle": "دو روزه، همراه مربی",
+                "dateValue": "2026-06-12",
+                "dateLabel": "جمعه ۲۲ خرداد ۱۴۰۵",
+                "programState": "future",
+                "statusLabel": "برنامه آینده",
+                "bookLabel": "رزرو جایگاه",
+                "adTitle": "کمپینگ آخر هفته با دوچرخه",
+                "advertisement": "یک برنامه گروهی دو روزه برای تجربه کمپینگ سبک با دوچرخه، مناسب شروع سفرهای کوتاه.",
+                "details": [ "سطح: سبک تا متوسط", "مدت: دو روز", "پشتیبانی مسیر و مربی همراه", "ظرفیت باقی‌مانده: ۵ نفر" ],
+                "thumbnailText": "CAMP",
+                "thumbnailColor": "#6B1116",
+                "imageUrl": null
+              },
+              {
+                "id": "camp-family-1403-09-02",
+                "title": "کمپ خانوادگی سبک",
+                "subtitle": "برنامه کوتاه مناسب شروع",
+                "dateValue": "2026-05-02",
+                "dateLabel": "پنجشنبه ۱۲ اردیبهشت ۱۴۰۵",
+                "programState": "finished",
+                "statusLabel": "برنامه برگزار شده",
+                "viewLabel": "مشاهده برنامه",
+                "adTitle": "گزارش کمپ خانوادگی سبک",
+                "advertisement": "این برنامه برای آشنایی خانواده‌ها با تجهیزات پایه کمپینگ و مدیریت مسیرهای کوتاه برگزار شد.",
+                "details": [ "تعداد شرکت‌کنندگان: ۱۲ خانواده", "مدت برنامه: ۶ ساعت", "وضعیت: پایان یافته" ],
+                "galleryTitle": "گالری کمپ خانوادگی",
+                "gallery": [
+                  { "thumbnailText": "TENT", "thumbnailColor": "#6B1116", "caption": "آموزش چیدمان چادر", "imageUrl": null },
+                  { "thumbnailText": "BIKE", "thumbnailColor": "#101114", "caption": "آماده‌سازی دوچرخه‌ها", "imageUrl": null },
+                  { "thumbnailText": "TEAM", "thumbnailColor": "#D71920", "caption": "عکس گروهی پایان برنامه", "imageUrl": null }
+                ],
+                "thumbnailText": "FAM",
+                "thumbnailColor": "#2B2C30",
+                "imageUrl": null
+              }
+            ]
+          },
+          {
+            "id": "training",
+            "label": "آموزش",
+            "title": "کلاس‌های آموزشی",
+            "items": [
+              {
+                "id": "training-repair-1403-10-20",
+                "title": "کلاس تعمیرات پایه",
+                "subtitle": "پنچرگیری و تنظیمات ضروری",
+                "dateValue": "2026-06-02",
+                "dateLabel": "سه‌شنبه ۱۲ خرداد ۱۴۰۵، ساعت ۱۸",
+                "programState": "future",
+                "statusLabel": "برنامه آینده",
+                "bookLabel": "ثبت‌نام",
+                "adTitle": "تعمیرات پایه برای مسیر",
+                "advertisement": "در این کلاس یاد می‌گیرید پنچری، تنظیمات ساده و بررسی قبل از حرکت را بدون وابستگی به تعمیرگاه انجام دهید.",
+                "details": [ "سطح: مقدماتی", "مدت: ۲ ساعت", "ابزار تمرینی در کلاس فراهم است", "ظرفیت باقی‌مانده: ۸ نفر" ],
+                "thumbnailText": "FIX",
+                "thumbnailColor": "#101114",
+                "imageUrl": null
+              },
+              {
+                "id": "training-safety-1403-08-22",
+                "title": "آموزش ایمنی مسیر",
+                "subtitle": "برای مسیر شهری و گروهی",
+                "dateValue": "2026-04-25",
+                "dateLabel": "جمعه ۵ اردیبهشت ۱۴۰۵، ساعت ۱۶",
+                "programState": "finished",
+                "statusLabel": "برنامه برگزار شده",
+                "viewLabel": "مشاهده برنامه",
+                "adTitle": "گزارش آموزش ایمنی مسیر",
+                "advertisement": "این کارگاه روی قوانین حرکت گروهی، علائم دست و مدیریت فاصله ایمن در مسیرهای شهری تمرکز داشت.",
+                "details": [ "تعداد شرکت‌کنندگان: ۲۴ نفر", "مدت برنامه: ۲ ساعت", "وضعیت: پایان یافته" ],
+                "galleryTitle": "گالری آموزش ایمنی",
+                "gallery": [
+                  { "thumbnailText": "SIGN", "thumbnailColor": "#D71920", "caption": "تمرین علائم دست", "imageUrl": null },
+                  { "thumbnailText": "LINE", "thumbnailColor": "#101114", "caption": "تمرین حرکت پشت سر هم", "imageUrl": null }
+                ],
+                "thumbnailText": "SAFE",
+                "thumbnailColor": "#D71920",
+                "imageUrl": null
+              }
+            ]
+          }
         ]
       },
-      "layout": { "presentation": "list" },
+      "layout": { "mode": "tabs", "content": "carousel" },
       "style": { "cardVariant": "compact" }
     }
   ]

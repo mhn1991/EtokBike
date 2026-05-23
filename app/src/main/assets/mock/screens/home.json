@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "screenId": "home",
-  "version": 1,
+  "version": 3,
   "title": "EtokBike",
   "sections": [
     {
@@ -87,15 +87,41 @@
     },
     {
       "id": "weekly-programs",
-      "type": "schedule_list",
+      "type": "offer_sections",
       "data": {
         "title": "برنامه‌های این هفته",
-        "items": [
-          { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه، همراه مربی", "price": "رزرو جایگاه" },
-          { "title": "تمرین مبتدی شهری", "subtitle": "جمعه ۹ صبح - ظرفیت محدود", "price": "ثبت‌نام" }
+        "defaultSubsection": "rides",
+        "subsections": [
+          {
+            "id": "rides",
+            "label": "رکاب‌زنی",
+            "title": "برنامه‌های رکاب‌زنی این هفته",
+            "items": [
+              { "title": "تمرین مبتدی شهری", "subtitle": "جمعه ۹ صبح - ظرفیت محدود", "description": "مسیر کوتاه شهری با مربی برای شروع امن و کنترل بهتر دوچرخه.", "price": "ثبت‌نام", "thumbnailText": "RIDE", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "رکاب صبحگاهی پارک", "subtitle": "سه‌شنبه ۷ صبح", "description": "تمرین سبک گروهی برای حفظ آمادگی و آشنایی با مسیرهای شهری.", "price": "رایگان", "thumbnailText": "AM", "thumbnailColor": "#101114", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "camping",
+            "label": "کمپینگ",
+            "title": "برنامه‌های کمپینگ این هفته",
+            "items": [
+              { "title": "تور کمپینگ آخر هفته", "subtitle": "دو روزه، همراه مربی", "description": "برنامه گروهی سبک با پشتیبانی مسیر و آموزش آماده‌سازی تجهیزات.", "price": "رزرو جایگاه", "thumbnailText": "CAMP", "thumbnailColor": "#6B1116", "imageUrl": null },
+              { "title": "کارگاه آماده‌سازی سفر", "subtitle": "چهارشنبه ۶ عصر", "description": "چک‌لیست وسایل، تنظیم دوچرخه و نکات مسیرهای بیرون‌شهری.", "price": "ثبت‌نام", "thumbnailText": "KIT", "thumbnailColor": "#2B2C30", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "training",
+            "label": "آموزش",
+            "title": "آموزش‌های این هفته",
+            "items": [
+              { "title": "کلاس تعمیرات پایه", "subtitle": "پنچرگیری و تنظیمات ضروری", "description": "آموزش عملی ابزارهای ضروری، تعویض تیوب و تنظیمات اولیه مسیر.", "price": "ثبت‌نام", "thumbnailText": "FIX", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "آموزش کنترل ترمز", "subtitle": "پنجشنبه ۵ عصر", "description": "تمرین ترمزگیری ایمن، تعادل در پیچ و کنترل سرعت برای مسیر شهری.", "price": "ثبت‌نام", "thumbnailText": "STOP", "thumbnailColor": "#D71920", "imageUrl": null }
+            ]
+          }
         ]
       },
-      "layout": { "presentation": "list" },
+      "layout": { "mode": "tabs", "content": "carousel" },
       "style": { "cardVariant": "compact" }
     }
   ]

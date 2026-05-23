@@ -9,12 +9,12 @@ android {
     defaultConfig {
         applicationId 'com.etokbike.app'
         minSdkVersion 23
-        targetSdkVersion 25
+        targetSdkVersion 31
         versionCode 1
         versionName '0.1.0'
     }
 
     lintOptions {
-        disable 'ExpiredTargetSdkVersion'
+        disable 'GradleCompatible'
     }
 }

@@ -1,28 +1,71 @@
 {
   "schemaVersion": 1,
   "screenId": "account",
-  "version": 1,
+  "version": 2,
   "title": "حساب کاربری",
   "sections": [
     {
       "id": "profile-summary",
       "type": "profile_summary",
       "data": {
-        "title": "سلام، کاربر EtokBike",
-        "subtitle": "ورود و ثبت‌نام در نسخه بعدی به سرور متصل می‌شود."
+        "title": "سلام، علی رضایی",
+        "subtitle": "جزئیات حساب، سفارش‌ها و وضعیت خریدهای فعال شما"
       },
       "layout": {},
       "style": { "sectionVariant": "info" }
     },
     {
-      "id": "recent-activity",
-      "type": "activity_list",
+      "id": "client-details",
+      "type": "client_details",
       "data": {
-        "title": "فعالیت‌های اخیر",
+        "title": "مشخصات مشتری",
+        "fields": [
+          { "label": "نام کامل", "value": "علی رضایی" },
+          { "label": "شماره تماس", "value": "۰۹۱۲۱۲۳۴۵۶۷" },
+          { "label": "ایمیل", "value": "ali.rezaei@example.com" },
+          { "label": "آدرس تحویل", "value": "تهران، خیابان ولیعصر، پلاک ۱۲" }
+        ]
+      },
+      "layout": {},
+      "style": { "sectionVariant": "info" }
+    },
+    {
+      "id": "ongoing-purchases",
+      "type": "ongoing_purchase",
+      "data": {
+        "title": "خریدهای در حال انجام",
+        "emptyStateText": "در حال حاضر خرید فعالی ندارید.",
         "items": [
-          { "title": "سفارش نمونه", "subtitle": "دوچرخه کوهستان ETX 200 - در انتظار پرداخت", "price": "۲۸,۵۰۰,۰۰۰ تومان" },
-          { "title": "رزرو سرویس", "subtitle": "سرویس کامل دوچرخه - زمان انتخاب نشده", "price": "در انتظار" },
-          { "title": "ثبت‌نام تمرین", "subtitle": "تمرین مبتدی شهری", "price": "نمونه" }
+          {
+            "id": "order-1024",
+            "title": "سفارش ET-1024",
+            "subtitle": "دوچرخه کوهستان ETX 200 + کلاه AirFit",
+            "status": "در مرحله آماده‌سازی",
+            "currentLocation": "وضعیت فعلی: انبار مرکزی EtokBike",
+            "expandLabel": "مشاهده روند سفارش",
+            "collapseLabel": "بستن روند سفارش",
+            "currentStep": 1,
+            "steps": [
+              { "label": "ثبت سفارش", "detail": "سفارش شما ثبت و تایید شد." },
+              { "label": "آماده‌سازی", "detail": "محصول در انبار بررسی و بسته‌بندی می‌شود." },
+              { "label": "ارسال", "detail": "پس از تحویل به پیک، کد رهگیری نمایش داده می‌شود." },
+              { "label": "تحویل", "detail": "پس از دریافت سفارش توسط مشتری تکمیل می‌شود." }
+            ]
+          }
+        ]
+      },
+      "layout": {},
+      "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "purchase-history",
+      "type": "purchase_history",
+      "data": {
+        "title": "خریدهای قبلی",
+        "items": [
+          { "title": "سفارش ET-1009", "subtitle": "تایر ضد پنچری + لنت ترمز دیسکی", "description": "تحویل شده در ۱۴۰۳/۰۹/۱۸", "price": "۲,۴۴۰,۰۰۰ تومان" },
+          { "title": "سفارش ET-0998", "subtitle": "سرویس کامل دوچرخه", "description": "انجام شده در فروشگاه مرکزی", "price": "۹۵۰,۰۰۰ تومان" },
+          { "title": "سفارش ET-0972", "subtitle": "چراغ جلو شارژی + قفل زنجیری", "description": "تحویل شده در ۱۴۰۳/۰۸/۰۲", "price": "۱,۶۴۰,۰۰۰ تومان" }
         ]
       },
       "layout": { "presentation": "list" },

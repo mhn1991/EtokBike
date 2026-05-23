@@ -1,21 +1,46 @@
 {
   "schemaVersion": 1,
   "screenId": "services",
-  "version": 1,
+  "version": 2,
   "title": "خدمات",
   "sections": [
     {
       "id": "service-booking",
-      "type": "service_list",
+      "type": "offer_sections",
       "data": {
         "title": "رزرو خدمات",
-        "items": [
-          { "title": "سرویس کامل دوچرخه", "subtitle": "تنظیم دنده، ترمز و بازبینی ایمنی", "price": "از ۹۵۰,۰۰۰ تومان" },
-          { "title": "تعویض تایر و تیوب", "subtitle": "انجام سریع در فروشگاه", "price": "از ۲۵۰,۰۰۰ تومان" },
-          { "title": "مشاوره خرید", "subtitle": "انتخاب دوچرخه بر اساس قد و مسیر", "price": "رایگان" }
+        "defaultSubsection": "maintenance",
+        "subsections": [
+          {
+            "id": "maintenance",
+            "label": "سرویس",
+            "title": "سرویس و تنظیمات",
+            "items": [
+              { "title": "سرویس کامل دوچرخه", "subtitle": "تنظیم دنده، ترمز و بازبینی ایمنی", "description": "بازبینی کامل قطعات مصرفی، روان‌کاری و آماده‌سازی برای مسیر روزانه.", "price": "از ۹۵۰,۰۰۰ تومان", "thumbnailText": "FULL", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "تنظیم دنده و ترمز", "subtitle": "تحویل سریع در فروشگاه", "description": "رفع صدای زنجیر، تنظیم کابل‌ها و کنترل قدرت ترمزگیری.", "price": "از ۳۵۰,۰۰۰ تومان", "thumbnailText": "TUNE", "thumbnailColor": "#101114", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "repair",
+            "label": "تعمیرات",
+            "title": "تعمیرات سریع",
+            "items": [
+              { "title": "تعویض تایر و تیوب", "subtitle": "انجام سریع در فروشگاه", "description": "تعویض تیوب، بررسی تایر و تنظیم باد مناسب مسیر.", "price": "از ۲۵۰,۰۰۰ تومان", "thumbnailText": "TIRE", "thumbnailColor": "#6B1116", "imageUrl": null },
+              { "title": "تعویض لنت ترمز", "subtitle": "دیسکی و لقمه‌ای", "description": "بررسی دیسک، نصب لنت جدید و تست ترمز قبل از تحویل.", "price": "از ۳۲۰,۰۰۰ تومان", "thumbnailText": "PAD", "thumbnailColor": "#2B2C30", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "consulting",
+            "label": "مشاوره",
+            "title": "مشاوره خرید و مسیر",
+            "items": [
+              { "title": "مشاوره خرید", "subtitle": "انتخاب دوچرخه بر اساس قد و مسیر", "description": "بررسی نیاز، بودجه و سایز مناسب برای خرید دقیق‌تر.", "price": "رایگان", "thumbnailText": "ASK", "thumbnailColor": "#101114", "imageUrl": null },
+              { "title": "برنامه سرویس دوره‌ای", "subtitle": "برای استفاده روزانه و سفر", "description": "پیشنهاد زمان‌بندی سرویس و قطعات مصرفی بر اساس سبک استفاده.", "price": "رایگان", "thumbnailText": "PLAN", "thumbnailColor": "#D71920", "imageUrl": null }
+            ]
+          }
         ]
       },
-      "layout": { "presentation": "list" },
+      "layout": { "mode": "tabs", "content": "carousel" },
       "style": { "cardVariant": "compact" }
     }
   ]
