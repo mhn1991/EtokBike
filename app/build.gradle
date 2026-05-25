@@ -10,6 +10,18 @@ android {
         }
     }
 
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+
+            proguardFiles(
+                    getDefaultProguardFile('proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
+            )
+        }
+    }
+
     defaultConfig {
         applicationId = 'com.etokbike.app'
         minSdk = 23
