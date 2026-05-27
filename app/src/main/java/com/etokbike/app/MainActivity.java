@@ -251,6 +251,7 @@ public class MainActivity extends Activity {
         screen.getJSONArray("sections");
     }
 
+    @SuppressWarnings("deprecation")
     private View buildShell() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -258,22 +259,51 @@ public class MainActivity extends Activity {
         root.setLayoutParams(match());
         root.setPadding(dp(0), dp(0), dp(0), dp(0));
 
-        root.addView(buildTopBar());
+        View topBar = buildTopBar();
+        int topBarBasePaddingLeft = topBar.getPaddingLeft();
+        int topBarBasePaddingTop = topBar.getPaddingTop();
+        int topBarBasePaddingRight = topBar.getPaddingRight();
+        int topBarBasePaddingBottom = topBar.getPaddingBottom();
+        root.addView(topBar);
 
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(false);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(12), dp(16), dp(112));
+        int contentBottomPadding = dp(112);
+        content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding);
         scrollView.addView(content, new ScrollView.LayoutParams(-1, -2));
         root.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1));
 
         nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(8), dp(8), dp(8), dp(8));
+        int navBaseHeight = dp(72);
+        int navBottomPadding = dp(8);
+        nav.setPadding(dp(8), dp(8), dp(8), navBottomPadding);
         nav.setBackground(rounded(WHITE, 0, BORDER, 1));
-        root.addView(nav, new LinearLayout.LayoutParams(-1, dp(72)));
+        root.addView(nav, new LinearLayout.LayoutParams(-1, navBaseHeight));
+
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int systemTopInset = insets.getSystemWindowInsetTop();
+            int systemBottomInset = insets.getSystemWindowInsetBottom();
+            topBar.setPadding(
+                    topBarBasePaddingLeft,
+                    topBarBasePaddingTop + systemTopInset,
+                    topBarBasePaddingRight,
+                    topBarBasePaddingBottom
+            );
+            content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding + systemBottomInset);
+            nav.setPadding(dp(8), dp(8), dp(8), navBottomPadding + systemBottomInset);
+
+            ViewGroup.LayoutParams navParams = nav.getLayoutParams();
+            if (navParams != null && navParams.height != navBaseHeight + systemBottomInset) {
+                navParams.height = navBaseHeight + systemBottomInset;
+                nav.setLayoutParams(navParams);
+            }
+            return insets;
+        });
+        root.requestApplyInsets();
 
         return root;
     }
