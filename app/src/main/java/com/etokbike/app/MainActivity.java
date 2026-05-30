@@ -124,25 +124,30 @@ public class MainActivity extends Activity {
 
     private void loadScreensFromCache(JSONObject manifest) throws Exception {
         screens.clear();
+        screens.putAll(loadScreens(manifest));
+    }
+
+    private Map<String, JSONObject> loadScreens(JSONObject manifest) throws Exception {
+        Map<String, JSONObject> loadedScreens = new HashMap<>();
         JSONObject manifestScreens = manifest.getJSONObject("screens");
         JSONArray ids = manifestScreens.names();
-        if (ids == null) return;
+        if (ids == null) return loadedScreens;
 
         for (int i = 0; i < ids.length(); i++) {
             String screenId = ids.getString(i);
             JSONObject screenMeta = manifestScreens.getJSONObject(screenId);
             JSONObject screen = loadScreen(screenId, screenMeta);
-            screens.put(screenId, screen);
+            loadedScreens.put(screenId, screen);
         }
+        return loadedScreens;
     }
 
     private JSONObject loadScreen(String screenId, JSONObject screenMeta) throws Exception {
-        String cachedScreen = configDatabase.getScreenJson(screenId);
-        int localVersion = configDatabase.getScreenVersion(screenId);
+        ConfigDatabase.ScreenCacheEntry cached = configDatabase.getScreenCache(screenId);
         int bundledVersion = screenMeta.optInt("version", 0);
-        if (cachedScreen != null && localVersion >= bundledVersion) {
+        if (cached != null && cached.version >= bundledVersion) {
             try {
-                JSONObject screen = new JSONObject(cachedScreen);
+                JSONObject screen = new JSONObject(cached.rawJson);
                 validateScreen(screen, screenId);
                 return screen;
             } catch (Exception ignored) {
@@ -179,10 +184,12 @@ public class MainActivity extends Activity {
 
                 downloadChangedScreens(manifest);
                 configDatabase.saveManifest(manifest, remoteVersion);
+                Map<String, JSONObject> updatedScreens = loadScreens(manifest);
                 runOnUiThread(() -> {
                     try {
                         applyManifest(manifest);
-                        loadScreensFromCache(manifest);
+                        screens.clear();
+                        screens.putAll(updatedScreens);
                         if (!screens.containsKey(currentScreen)) {
                             currentScreen = "home";
                         }
@@ -321,7 +328,7 @@ public class MainActivity extends Activity {
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
         Button messages = topIconButton("۲", R.drawable.ic_message_24);
-        messages.setOnClickListener(v -> renderScreen("messages"));
+        messages.setOnClickListener(v -> openScreen("messages"));
         bar.addView(messages, new LinearLayout.LayoutParams(dp(58), dp(44)));
 
         View actionSpacer = new View(this);
@@ -329,7 +336,7 @@ public class MainActivity extends Activity {
 
         cartButton = topIconButton("", R.drawable.ic_cart_24);
         updateCartButton();
-        cartButton.setOnClickListener(v -> renderScreen("cart"));
+        cartButton.setOnClickListener(v -> openScreen("cart"));
         LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(58), dp(44));
         bar.addView(cartButton, cartParams);
         return bar;
@@ -349,7 +356,7 @@ public class MainActivity extends Activity {
                 tab.setSingleLine(true);
                 tab.setEllipsize(TextUtils.TruncateAt.END);
                 tab.setBackground(selected ? rounded(SURFACE, 20, 0, 0) : rounded(WHITE, 20, 0, 0));
-                tab.setOnClickListener(v -> renderScreen(screen));
+                tab.setOnClickListener(v -> openScreen(screen));
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
                 params.setMargins(dp(2), dp(0), dp(2), dp(0));
                 nav.addView(tab, params);
@@ -360,6 +367,19 @@ public class MainActivity extends Activity {
     }
 
     private void renderScreen(String screenId) {
+        boolean resetScroll = !screenId.equals(currentScreen);
+        renderScreen(screenId, resetScroll);
+    }
+
+    private void openScreen(String screenId) {
+        if (screenId.equals(currentScreen)) {
+            scrollToTop();
+        } else {
+            renderScreen(screenId);
+        }
+    }
+
+    private void renderScreen(String screenId, boolean resetScroll) {
         if ("program-detail".equals(screenId)) {
             renderProgramDetailScreen();
             return;
@@ -385,7 +405,9 @@ public class MainActivity extends Activity {
                 renderSection(sections.getJSONObject(i));
                 addSpace(content, 14);
             }
-            scrollToTop();
+            if (resetScroll) {
+                scrollToTop();
+            }
         } catch (Exception e) {
             Toast.makeText(this, "خطا در نمایش صفحه", Toast.LENGTH_SHORT).show();
         }
@@ -505,7 +527,7 @@ public class MainActivity extends Activity {
         addSpace(box, 12);
         Button action = button(section.getString("actionLabel"), true);
         String target = section.optString("target", "shop");
-        action.setOnClickListener(v -> renderScreen(target));
+        action.setOnClickListener(v -> openScreen(target));
         box.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
         return box;
     }
@@ -572,11 +594,11 @@ public class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
-        primary.setOnClickListener(v -> renderScreen(section.optString("primaryTarget", section.optString("target", "shop"))));
+        primary.setOnClickListener(v -> openScreen(section.optString("primaryTarget", section.optString("target", "shop"))));
         Button secondary = button(section.optString("secondaryActionLabel", "رزرو سرویس"), false);
         secondary.setTextColor(WHITE);
         secondary.setBackground(rounded(Color.rgb(35, 36, 41), 8, Color.rgb(92, 94, 102), 1));
-        secondary.setOnClickListener(v -> renderScreen(section.optString("secondaryTarget", "services")));
+        secondary.setOnClickListener(v -> openScreen(section.optString("secondaryTarget", "services")));
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
         LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
@@ -1131,7 +1153,7 @@ public class MainActivity extends Activity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
-        spinner.setSelection(selectedIndex);
+        spinner.setSelection(selectedIndex, false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -1346,12 +1368,12 @@ public class MainActivity extends Activity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
-        spinner.setSelection(selectedIndex);
+        spinner.setSelection(selectedIndex, false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String newCategory = ids.get(position);
-                if (!newCategory.equals(selectedCategories.get(key))) {
+                if (!newCategory.equals(selectedCategory)) {
                     selectedCategories.put(key, newCategory);
                     visibleItemCounts.remove(key);
                     renderScreen(currentScreen);
@@ -1437,7 +1459,7 @@ public class MainActivity extends Activity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
-        spinner.setSelection(selectedIndex);
+        spinner.setSelection(selectedIndex, false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -1600,7 +1622,7 @@ public class MainActivity extends Activity {
         card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         if (navigable) {
             String target = item.optString("target", "shop");
-            card.setOnClickListener(v -> renderScreen(target));
+            card.setOnClickListener(v -> openScreen(target));
         }
         return card;
     }
@@ -1878,11 +1900,14 @@ public class MainActivity extends Activity {
             getWritableDatabase().replace("app_manifest", null, values);
         }
 
-        String getScreenJson(String screenId) {
+        ScreenCacheEntry getScreenCache(String screenId) {
             SQLiteDatabase db = getReadableDatabase();
-            Cursor cursor = db.rawQuery("SELECT raw_json FROM screen_configs WHERE screen_id = ?", new String[]{screenId});
+            Cursor cursor = db.rawQuery("SELECT raw_json, version FROM screen_configs WHERE screen_id = ?", new String[]{screenId});
             try {
-                return cursor.moveToFirst() ? cursor.getString(0) : null;
+                if (!cursor.moveToFirst()) {
+                    return null;
+                }
+                return new ScreenCacheEntry(cursor.getString(0), cursor.getInt(1));
             } finally {
                 cursor.close();
             }
@@ -1905,6 +1930,16 @@ public class MainActivity extends Activity {
             values.put("raw_json", screen.toString());
             values.put("updated_at", System.currentTimeMillis());
             getWritableDatabase().replace("screen_configs", null, values);
+        }
+
+        private static class ScreenCacheEntry {
+            final String rawJson;
+            final int version;
+
+            ScreenCacheEntry(String rawJson, int version) {
+                this.rawJson = rawJson;
+                this.version = version;
+            }
         }
     }
 }
