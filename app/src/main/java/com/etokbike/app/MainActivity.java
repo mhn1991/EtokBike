@@ -18,6 +18,7 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.ArrayAdapter;
 import android.widget.AdapterView;
 import android.widget.LinearLayout;
@@ -63,6 +64,7 @@ public class MainActivity extends Activity {
     private final Map<String, Boolean> expandedAccountSections = new HashMap<>();
     private ConfigDatabase configDatabase;
     private JSONObject config;
+    private ScrollView scrollView;
     private LinearLayout content;
     private LinearLayout nav;
     private Button cartButton;
@@ -266,7 +268,7 @@ public class MainActivity extends Activity {
         int topBarBasePaddingBottom = topBar.getPaddingBottom();
         root.addView(topBar);
 
-        ScrollView scrollView = new ScrollView(this);
+        scrollView = new ScrollView(this);
         scrollView.setFillViewport(false);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -312,27 +314,23 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(16), dp(14), dp(16), dp(12));
+        bar.setPadding(dp(16), dp(12), dp(16), dp(10));
         bar.setBackgroundColor(BLACK);
 
         TextView logo = text("EtokBike", 22, WHITE, true);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button messages = button("(۲)", true);
-        messages.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_message_24, 0, 0, 0);
-        messages.setCompoundDrawablePadding(dp(6));
+        Button messages = topIconButton("۲", R.drawable.ic_message_24);
         messages.setOnClickListener(v -> renderScreen("messages"));
-        bar.addView(messages, new LinearLayout.LayoutParams(dp(78), dp(44)));
+        bar.addView(messages, new LinearLayout.LayoutParams(dp(58), dp(44)));
 
         View actionSpacer = new View(this);
-        bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(12), 1));
+        bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(8), 1));
 
-        cartButton = button("", true);
-        cartButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_cart_24, 0, 0, 0);
-        cartButton.setCompoundDrawablePadding(dp(6));
+        cartButton = topIconButton("", R.drawable.ic_cart_24);
         updateCartButton();
         cartButton.setOnClickListener(v -> renderScreen("cart"));
-        LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(78), dp(44));
+        LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(58), dp(44));
         bar.addView(cartButton, cartParams);
         return bar;
     }
@@ -375,16 +373,19 @@ public class MainActivity extends Activity {
         renderNavigation();
 
         try {
-            TextView title = text(screen.getString("title"), 28, BLACK, true);
-            title.setGravity(Gravity.RIGHT);
-            content.addView(title, new LinearLayout.LayoutParams(-1, -2));
-            addSpace(content, 14);
+            if (!screen.optBoolean("hideTitle", false)) {
+                TextView title = text(screen.getString("title"), 28, BLACK, true);
+                title.setGravity(Gravity.RIGHT);
+                content.addView(title, new LinearLayout.LayoutParams(-1, -2));
+                addSpace(content, 14);
+            }
 
             JSONArray sections = screen.getJSONArray("sections");
             for (int i = 0; i < sections.length(); i++) {
                 renderSection(sections.getJSONObject(i));
                 addSpace(content, 14);
             }
+            scrollToTop();
         } catch (Exception e) {
             Toast.makeText(this, "خطا در نمایش صفحه", Toast.LENGTH_SHORT).show();
         }
@@ -417,8 +418,15 @@ public class MainActivity extends Activity {
                 content.addView(sectionTitle(activeProgramDetail.optString("galleryTitle", "گالری برنامه")));
                 content.addView(gallery(activeProgramDetail.getJSONArray("gallery")));
             }
+            scrollToTop();
         } catch (Exception e) {
             Toast.makeText(this, "خطا در نمایش برنامه", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void scrollToTop() {
+        if (scrollView != null) {
+            scrollView.post(() -> scrollView.scrollTo(0, 0));
         }
     }
 
@@ -485,6 +493,10 @@ public class MainActivity extends Activity {
     }
 
     private View hero(JSONObject section) throws Exception {
+        if (section.has("primaryActionLabel") || section.has("stats") || section.has("featureTitle")) {
+            return bikeShopHero(section);
+        }
+
         LinearLayout box = panel(BLACK);
         box.setPadding(dp(16), dp(16), dp(16), dp(16));
         box.addView(text(section.getString("title"), 22, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
@@ -496,6 +508,120 @@ public class MainActivity extends Activity {
         action.setOnClickListener(v -> renderScreen(target));
         box.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
         return box;
+    }
+
+    private View bikeShopHero(JSONObject section) throws Exception {
+        LinearLayout box = panel(Color.rgb(18, 19, 23));
+        box.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        String eyebrow = section.optString("eyebrow", "");
+        if (!eyebrow.isEmpty()) {
+            TextView chip = pillText(eyebrow, 12, WHITE, Color.rgb(72, 24, 27), RED);
+            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(-2, dp(34));
+            chipParams.setMargins(dp(0), dp(0), dp(0), dp(10));
+            box.addView(chip, chipParams);
+        }
+
+        TextView title = text(section.getString("title"), 25, WHITE, true);
+        title.setMaxLines(3);
+        box.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(box, 7);
+
+        TextView subtitle = text(section.getString("subtitle"), 14, Color.rgb(224, 225, 229), false);
+        subtitle.setMaxLines(3);
+        box.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
+
+        addSpace(box, 14);
+        ImageView bike = new ImageView(this);
+        bike.setImageResource(heroVisualResource(section.optString("visual", "bike")));
+        bike.setAdjustViewBounds(true);
+        bike.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        bike.setBackground(rounded(Color.rgb(29, 30, 35), 8, Color.rgb(58, 60, 66), 1));
+        bike.setPadding(dp(8), dp(8), dp(8), dp(8));
+        box.addView(bike, new LinearLayout.LayoutParams(-1, dp(150)));
+
+        String featureTitle = section.optString("featureTitle", "");
+        if (!featureTitle.isEmpty()) {
+            addSpace(box, 12);
+            LinearLayout feature = new LinearLayout(this);
+            feature.setOrientation(LinearLayout.VERTICAL);
+            feature.setGravity(Gravity.RIGHT);
+            feature.setPadding(dp(12), dp(12), dp(12), dp(12));
+            feature.setBackground(rounded(Color.rgb(31, 32, 37), 8, Color.rgb(70, 72, 78), 1));
+            feature.addView(text(featureTitle, 16, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
+            String featureSubtitle = section.optString("featureSubtitle", "");
+            if (!featureSubtitle.isEmpty()) {
+                addSpace(feature, 4);
+                feature.addView(text(featureSubtitle, 12, Color.rgb(205, 207, 213), false), new LinearLayout.LayoutParams(-1, -2));
+            }
+            String featurePrice = section.optString("featurePrice", "");
+            if (!featurePrice.isEmpty()) {
+                addSpace(feature, 7);
+                feature.addView(text(featurePrice, 14, Color.rgb(255, 208, 103), true), new LinearLayout.LayoutParams(-1, -2));
+            }
+            box.addView(feature, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        JSONArray stats = section.optJSONArray("stats");
+        if (stats != null && stats.length() > 0) {
+            addSpace(box, 12);
+            box.addView(heroStats(stats), new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        addSpace(box, 14);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
+        primary.setOnClickListener(v -> renderScreen(section.optString("primaryTarget", section.optString("target", "shop"))));
+        Button secondary = button(section.optString("secondaryActionLabel", "رزرو سرویس"), false);
+        secondary.setTextColor(WHITE);
+        secondary.setBackground(rounded(Color.rgb(35, 36, 41), 8, Color.rgb(92, 94, 102), 1));
+        secondary.setOnClickListener(v -> renderScreen(section.optString("secondaryTarget", "services")));
+        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+        primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
+        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+        secondaryParams.setMargins(dp(0), dp(0), dp(4), dp(0));
+        actions.addView(primary, primaryParams);
+        actions.addView(secondary, secondaryParams);
+        box.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+        return box;
+    }
+
+    private View heroStats(JSONArray stats) throws Exception {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < stats.length(); i += 2) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER);
+            for (int j = 0; j < 2 && i + j < stats.length(); j++) {
+                JSONObject item = stats.getJSONObject(i + j);
+                LinearLayout stat = new LinearLayout(this);
+                stat.setOrientation(LinearLayout.VERTICAL);
+                stat.setGravity(Gravity.RIGHT);
+                stat.setPadding(dp(10), dp(9), dp(10), dp(9));
+                stat.setBackground(rounded(Color.rgb(27, 28, 33), 8, Color.rgb(55, 57, 64), 1));
+                stat.addView(text(item.getString("value"), 15, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
+                addSpace(stat, 2);
+                TextView label = text(item.getString("label"), 11, Color.rgb(187, 189, 196), false);
+                label.setMaxLines(2);
+                stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+                params.setMargins(dp(3), dp(3), dp(3), dp(3));
+                row.addView(stat, params);
+            }
+            wrap.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return wrap;
+    }
+
+    private int heroVisualResource(String visual) {
+        if ("service".equals(visual)) return R.drawable.hero_service_shop;
+        if ("events".equals(visual)) return R.drawable.hero_events_shop;
+        if ("account".equals(visual)) return R.drawable.hero_account_shop;
+        if ("messages".equals(visual)) return R.drawable.hero_messages_shop;
+        if ("cart".equals(visual)) return R.drawable.hero_cart_shop;
+        return R.drawable.hero_bike_shop;
     }
 
     private View grid(JSONArray items, boolean navigable) throws Exception {
@@ -1462,6 +1588,13 @@ public class MainActivity extends Activity {
 
     private View smallCard(JSONObject item, boolean navigable) throws Exception {
         LinearLayout card = panel(SURFACE);
+        String badge = item.optString("badge", "");
+        if (!badge.isEmpty()) {
+            TextView badgeView = pillText(badge, 11, RED, Color.rgb(255, 235, 236), RED);
+            LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(-2, dp(28));
+            badgeParams.setMargins(dp(0), dp(0), dp(0), dp(8));
+            card.addView(badgeView, badgeParams);
+        }
         card.addView(text(item.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(card, 6);
         card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
@@ -1555,6 +1688,16 @@ public class MainActivity extends Activity {
         return title;
     }
 
+    private TextView pillText(String value, int sp, int textColor, int fillColor, int strokeColor) {
+        TextView view = text(value, sp, textColor, true);
+        view.setGravity(Gravity.CENTER);
+        view.setSingleLine(true);
+        view.setEllipsize(TextUtils.TruncateAt.END);
+        view.setPadding(dp(12), dp(0), dp(12), dp(0));
+        view.setBackground(rounded(fillColor, 18, strokeColor, 1));
+        return view;
+    }
+
     private LinearLayout panel(int color) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -1606,10 +1749,33 @@ public class MainActivity extends Activity {
         return button;
     }
 
+    private Button topIconButton(String label, int iconResource) {
+        Button action = button(label, false);
+        action.setTextColor(WHITE);
+        action.setTextSize(13);
+        action.setBackground(rounded(Color.rgb(28, 29, 34), 12, Color.rgb(74, 76, 84), 1));
+        action.setCompoundDrawablesWithIntrinsicBounds(iconResource, 0, 0, 0);
+        action.setCompoundDrawablePadding(dp(4));
+        return action;
+    }
+
     private void updateCartButton() {
         if (cartButton != null) {
-            cartButton.setText("(" + cartCount + ")");
+            cartButton.setText(persianDigits(cartCount));
         }
+    }
+
+    private String persianDigits(int value) {
+        char[] digits = String.valueOf(value).toCharArray();
+        StringBuilder builder = new StringBuilder();
+        for (char digit : digits) {
+            if (digit >= '0' && digit <= '9') {
+                builder.append((char) ('۰' + (digit - '0')));
+            } else {
+                builder.append(digit);
+            }
+        }
+        return builder.toString();
     }
 
     private void addSpace(LinearLayout parent, int dp) {

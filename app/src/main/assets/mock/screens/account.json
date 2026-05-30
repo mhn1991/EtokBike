@@ -1,30 +1,41 @@
 {
   "schemaVersion": 1,
   "screenId": "account",
-  "version": 3,
+  "version": 4,
   "title": "حساب کاربری",
+  "hideTitle": true,
   "sections": [
+    {
+      "id": "account-hero",
+      "type": "hero",
+      "data": {
+        "visual": "account",
+        "eyebrow": "حساب مالک دوچرخه",
+        "title": "سلام علی، وضعیت خرید و دوچرخه‌ها اینجاست",
+        "subtitle": "سفارش، تعمیر، دوچرخه‌های ثبت‌شده و سوابق خرید در یک مسیر قابل پیگیری هستند.",
+        "featureTitle": "سرویس بعدی ETX 200",
+        "featureSubtitle": "پیشنهاد: بازبینی ترمز و زنجیر تا پایان خرداد",
+        "featurePrice": "رزرو سریع فعال است",
+        "primaryActionLabel": "رزرو سرویس",
+        "primaryTarget": "services",
+        "secondaryActionLabel": "پیام به پشتیبانی",
+        "secondaryTarget": "messages",
+        "stats": [
+          { "value": "۱ سفارش", "label": "در حال آماده‌سازی" },
+          { "value": "۲ دوچرخه", "label": "ثبت شده" },
+          { "value": "۳ خرید", "label": "سوابق قبلی" },
+          { "value": "۱ یادآور", "label": "سرویس بعدی" }
+        ]
+      },
+      "layout": { "variant": "bike_shop" },
+      "style": { "emphasis": "high" }
+    },
     {
       "id": "profile-summary",
       "type": "profile_summary",
       "data": {
-        "title": "سلام، علی رضایی",
-        "subtitle": "جزئیات حساب، سفارش‌ها و وضعیت خریدهای فعال شما"
-      },
-      "layout": {},
-      "style": { "sectionVariant": "info" }
-    },
-    {
-      "id": "client-details",
-      "type": "client_details",
-      "data": {
-        "title": "مشخصات مشتری",
-        "fields": [
-          { "label": "نام کامل", "value": "علی رضایی" },
-          { "label": "شماره تماس", "value": "۰۹۱۲۱۲۳۴۵۶۷" },
-          { "label": "ایمیل", "value": "ali.rezaei@example.com" },
-          { "label": "آدرس تحویل", "value": "تهران، خیابان ولیعصر، پلاک ۱۲" }
-        ]
+        "title": "وضعیت حساب",
+        "subtitle": "اطلاعات تماس، آدرس تحویل و سابقه سفارش‌ها برای خرید و خدمات استفاده می‌شود."
       },
       "layout": {},
       "style": { "sectionVariant": "info" }
@@ -33,7 +44,7 @@
       "id": "ongoing-purchases",
       "type": "ongoing_purchase",
       "data": {
-        "title": "خریدهای در حال انجام",
+        "title": "پیگیری‌های فعال",
         "emptyStateText": "در حال حاضر خرید فعالی ندارید.",
         "items": [
           {
@@ -47,7 +58,7 @@
             "currentStep": 1,
             "steps": [
               { "label": "ثبت سفارش", "detail": "سفارش شما ثبت و تایید شد." },
-              { "label": "آماده‌سازی", "detail": "محصول در انبار بررسی و بسته‌بندی می‌شود." },
+              { "label": "آماده‌سازی", "detail": "دوچرخه در حال تنظیم، تست ترمز و بسته‌بندی است." },
               { "label": "ارسال", "detail": "پس از تحویل به پیک، کد رهگیری نمایش داده می‌شود." },
               { "label": "تحویل", "detail": "پس از دریافت سفارش توسط مشتری تکمیل می‌شود." }
             ]
@@ -65,17 +76,17 @@
         "items": [
           {
             "title": "ETX 200",
-            "subtitle": "دوچرخه کوهستان - استفاده هفتگی",
+            "subtitle": "کوهستان - استفاده هفتگی",
             "fields": [
               { "label": "سایز فریم", "value": "M" },
               { "label": "سایز تایر", "value": "۲۹ اینچ" },
               { "label": "ترمز", "value": "دیسکی" },
-              { "label": "آخرین سرویس", "value": "۱۴۰۵/۰۲/۲۰" }
+              { "label": "پیشنهاد بعدی", "value": "بازبینی ترمز و زنجیر" }
             ]
           },
           {
             "title": "E-City",
-            "subtitle": "دوچرخه شهری - رفت‌وآمد روزانه",
+            "subtitle": "شهری - رفت‌وآمد روزانه",
             "fields": [
               { "label": "سایز فریم", "value": "L" },
               { "label": "سایز تایر", "value": "۷۰۰C" },
@@ -89,14 +100,29 @@
       "style": { "cardVariant": "compact" }
     },
     {
+      "id": "client-details",
+      "type": "client_details",
+      "data": {
+        "title": "اطلاعات تماس و تحویل",
+        "fields": [
+          { "label": "نام کامل", "value": "علی رضایی" },
+          { "label": "شماره تماس", "value": "۰۹۱۲۱۲۳۴۵۶۷" },
+          { "label": "ایمیل", "value": "ali.rezaei@example.com" },
+          { "label": "آدرس تحویل", "value": "تهران، خیابان ولیعصر، پلاک ۱۲" }
+        ]
+      },
+      "layout": {},
+      "style": { "sectionVariant": "info" }
+    },
+    {
       "id": "purchase-history",
       "type": "purchase_history",
       "data": {
-        "title": "خریدهای قبلی",
+        "title": "سوابق خرید و خدمات",
         "items": [
-          { "title": "سفارش ET-1009", "subtitle": "تایر ضد پنچری + لنت ترمز دیسکی", "description": "تحویل شده در ۱۴۰۳/۰۹/۱۸", "price": "۲,۴۴۰,۰۰۰ تومان" },
-          { "title": "سفارش ET-0998", "subtitle": "سرویس کامل دوچرخه", "description": "انجام شده در فروشگاه مرکزی", "price": "۹۵۰,۰۰۰ تومان" },
-          { "title": "سفارش ET-0972", "subtitle": "چراغ جلو شارژی + قفل زنجیری", "description": "تحویل شده در ۱۴۰۳/۰۸/۰۲", "price": "۱,۶۴۰,۰۰۰ تومان" }
+          { "title": "سفارش ET-1009", "subtitle": "تایر ضد پنچری + لنت ترمز دیسکی", "description": "تحویل شده در ۱۴۰۵/۰۲/۱۸", "price": "۲,۴۴۰,۰۰۰ تومان" },
+          { "title": "سرویس ET-S221", "subtitle": "سرویس کامل دوچرخه", "description": "انجام شده در فروشگاه مرکزی", "price": "۹۵۰,۰۰۰ تومان" },
+          { "title": "سفارش ET-0972", "subtitle": "چراغ جلو شارژی + قفل زنجیری", "description": "تحویل شده در ۱۴۰۵/۰۱/۰۲", "price": "۱,۶۴۰,۰۰۰ تومان" }
         ]
       },
       "layout": { "presentation": "list" },

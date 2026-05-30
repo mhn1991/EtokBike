@@ -1,18 +1,44 @@
 {
   "schemaVersion": 1,
   "screenId": "messages",
-  "version": 1,
+  "version": 2,
   "title": "مرکز پیام",
+  "hideTitle": true,
   "sections": [
+    {
+      "id": "messages-hero",
+      "type": "hero",
+      "data": {
+        "visual": "messages",
+        "eyebrow": "پشتیبانی فروشگاه",
+        "title": "پیام‌ها بر اساس موضوع مرتب شده‌اند",
+        "subtitle": "برای سفارش، خدمات، برنامه‌ها یا فاکتور مستقیم به همان واحد پیام بدهید و گفتگو را در یک مسیر نگه دارید.",
+        "featureTitle": "۲ پیام خوانده نشده",
+        "featureSubtitle": "یک پیام سفارش و یک پیام برنامه منتظر پاسخ شماست",
+        "featurePrice": "پاسخ سریع‌تر با انتخاب واحد درست",
+        "primaryActionLabel": "پشتیبانی سفارش",
+        "primaryTarget": "messages",
+        "secondaryActionLabel": "رزرو سرویس",
+        "secondaryTarget": "services",
+        "stats": [
+          { "value": "۴ واحد", "label": "پشتیبانی" },
+          { "value": "۲ پیام", "label": "خوانده نشده" },
+          { "value": "۱ سفارش", "label": "در پیگیری" },
+          { "value": "۱ برنامه", "label": "ظرفیت باز" }
+        ]
+      },
+      "layout": { "variant": "bike_shop" },
+      "style": { "emphasis": "high" }
+    },
     {
       "id": "message-center",
       "type": "message_center",
       "data": {
-        "title": "پیام‌ها",
+        "title": "مرکز گفتگو",
         "defaultDepartment": "support",
         "summary": {
-          "title": "۲ پیام خوانده نشده",
-          "subtitle": "برای پیگیری سفارش، خدمات، برنامه‌ها یا امور مالی به واحد مربوطه پیام بفرستید."
+          "title": "پیام‌های فعال",
+          "subtitle": "واحد مناسب را انتخاب کنید تا پاسخ، فاکتور یا وضعیت سفارش سریع‌تر پیگیری شود."
         },
         "departments": [
           {
@@ -44,8 +70,8 @@
           },
           {
             "id": "programs",
-            "title": "برنامه‌ها",
-            "subtitle": "ثبت‌نام، کمپینگ و کلاس‌های آموزشی",
+            "title": "برنامه‌ها و آموزش",
+            "subtitle": "ثبت‌نام، ظرفیت و سوال از مربی",
             "unreadLabel": "۱ پیام جدید",
             "threadTitle": "گفتگو با واحد برنامه‌ها",
             "composerTitle": "ارسال پیام به واحد برنامه‌ها",

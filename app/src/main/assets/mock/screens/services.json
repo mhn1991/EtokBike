@@ -1,58 +1,76 @@
 {
   "schemaVersion": 1,
   "screenId": "services",
-  "version": 4,
+  "version": 5,
   "title": "خدمات",
+  "hideTitle": true,
   "sections": [
     {
-      "id": "booking-form",
-      "type": "service_booking_form",
+      "id": "services-hero",
+      "type": "hero",
       "data": {
-        "title": "رزرو زمان سرویس",
-        "serviceLabel": "نوع خدمات",
-        "bikeLabel": "دوچرخه",
-        "timeLabel": "زمان پیشنهادی",
-        "services": [ "سرویس کامل", "پنچرگیری فوری", "تنظیم دنده و ترمز", "بازبینی قبل از سفر", "مشاوره سایز و خرید" ],
-        "bikes": [ "ETX 200 - علی رضایی", "دوچرخه شهری E-City", "ثبت دوچرخه جدید" ],
-        "timeSlots": [ "امروز ۱۶:۰۰", "فردا ۱۰:۳۰", "فردا ۱۸:۰۰", "پنجشنبه ۱۲:۰۰" ],
-        "problemPlaceholder": "مشکل، صدای غیرعادی یا درخواست خاص را بنویسید. امکان ارسال عکس در نسخه بعدی اضافه می‌شود.",
-        "submitLabel": "ثبت درخواست سرویس"
+        "visual": "service",
+        "eyebrow": "تعمیرگاه و سرویس",
+        "title": "سرویس دوچرخه با زمان مشخص و پیگیری روشن",
+        "subtitle": "نوع مشکل را انتخاب کنید، زمان پیشنهادی را ببینید و روند تعمیر را از داخل حساب کاربری دنبال کنید.",
+        "featureTitle": "پذیرش فوری امروز",
+        "featureSubtitle": "پنچرگیری، تنظیم ترمز و دنده، بازبینی قبل از سفر",
+        "featurePrice": "از ۲۵۰,۰۰۰ تومان",
+        "primaryActionLabel": "رزرو زمان",
+        "primaryTarget": "services",
+        "secondaryActionLabel": "پیگیری تعمیر",
+        "secondaryTarget": "account",
+        "stats": [
+          { "value": "۳ بازه", "label": "امروز و فردا" },
+          { "value": "۹۰ دقیقه", "label": "سرویس سریع" },
+          { "value": "۵ مرحله", "label": "پیگیری تعمیر" },
+          { "value": "رایگان", "label": "برآورد اولیه" }
+        ]
       },
-      "layout": {},
-      "style": { "sectionVariant": "form" }
+      "layout": { "variant": "bike_shop" },
+      "style": { "emphasis": "high" }
     },
     {
       "id": "service-booking",
       "type": "offer_sections",
       "data": {
-        "title": "رزرو خدمات",
-        "defaultSubsection": "maintenance",
+        "title": "خدمات پرکاربرد",
+        "defaultSubsection": "urgent",
         "subsections": [
           {
-            "id": "maintenance",
-            "label": "سرویس",
-            "title": "سرویس و تنظیمات",
+            "id": "urgent",
+            "label": "فوری",
+            "title": "خدمات سریع فروشگاه",
             "items": [
-              { "title": "سرویس کامل دوچرخه", "subtitle": "تنظیم دنده، ترمز و بازبینی ایمنی", "description": "بازبینی کامل قطعات مصرفی، روان‌کاری و آماده‌سازی برای مسیر روزانه.", "price": "از ۹۵۰,۰۰۰ تومان", "thumbnailText": "FULL", "thumbnailColor": "#D71920", "imageUrl": null },
-              { "title": "تنظیم دنده و ترمز", "subtitle": "تحویل سریع در فروشگاه", "description": "رفع صدای زنجیر، تنظیم کابل‌ها و کنترل قدرت ترمزگیری.", "price": "از ۳۵۰,۰۰۰ تومان", "thumbnailText": "TUNE", "thumbnailColor": "#101114", "imageUrl": null }
+              { "title": "پنچرگیری و تعویض تیوب", "subtitle": "تحویل سریع در فروشگاه", "description": "تعویض تیوب، بررسی تایر و تنظیم باد مناسب مسیر.", "price": "از ۲۵۰,۰۰۰ تومان", "thumbnailText": "TIRE", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "تنظیم دنده و ترمز", "subtitle": "برای صدای زنجیر یا ترمز ضعیف", "description": "تنظیم کابل‌ها، تست ترمزگیری و کنترل تعویض دنده.", "price": "از ۳۵۰,۰۰۰ تومان", "thumbnailText": "TUNE", "thumbnailColor": "#101114", "imageUrl": null }
             ]
           },
           {
-            "id": "repair",
-            "label": "تعمیرات",
-            "title": "تعمیرات سریع",
+            "id": "maintenance",
+            "label": "دوره‌ای",
+            "title": "سرویس دوره‌ای",
             "items": [
-              { "title": "تعویض تایر و تیوب", "subtitle": "انجام سریع در فروشگاه", "description": "تعویض تیوب، بررسی تایر و تنظیم باد مناسب مسیر.", "price": "از ۲۵۰,۰۰۰ تومان", "thumbnailText": "TIRE", "thumbnailColor": "#6B1116", "imageUrl": null },
-              { "title": "تعویض لنت ترمز", "subtitle": "دیسکی و لقمه‌ای", "description": "بررسی دیسک، نصب لنت جدید و تست ترمز قبل از تحویل.", "price": "از ۳۲۰,۰۰۰ تومان", "thumbnailText": "PAD", "thumbnailColor": "#2B2C30", "imageUrl": null }
+              { "title": "سرویس کامل دوچرخه", "subtitle": "تنظیم، روان‌کاری و بازبینی ایمنی", "description": "بازبینی کامل قطعات مصرفی، چرخ‌ها، ترمز، دنده و آماده‌سازی برای مسیر روزانه.", "price": "از ۹۵۰,۰۰۰ تومان", "thumbnailText": "FULL", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "پلن سرویس فصلی", "subtitle": "برای استفاده روزانه", "description": "یادآوری سرویس، تخفیف قطعات مصرفی و بازبینی ایمنی دوره‌ای.", "price": "عضویت", "thumbnailText": "PLAN", "thumbnailColor": "#6B1116", "imageUrl": null }
+            ]
+          },
+          {
+            "id": "trip",
+            "label": "سفر",
+            "title": "آماده‌سازی قبل از سفر",
+            "items": [
+              { "title": "بازبینی قبل از سفر", "subtitle": "برای برنامه‌های بیرون‌شهری", "description": "کنترل ترمز، تایر، زنجیر، پیچ‌ها و قطعات ضروری مسیر.", "price": "از ۴۵۰,۰۰۰ تومان", "thumbnailText": "TRIP", "thumbnailColor": "#2B2C30", "imageUrl": null },
+              { "title": "چک‌لیست ابزار مسیر", "subtitle": "برای رکاب‌زنی طولانی", "description": "پیشنهاد ابزار و قطعات همراه بر اساس مسیر و مدل دوچرخه.", "price": "رایگان", "thumbnailText": "KIT", "thumbnailColor": "#101114", "imageUrl": null }
             ]
           },
           {
             "id": "consulting",
             "label": "مشاوره",
-            "title": "مشاوره خرید و مسیر",
+            "title": "مشاوره خرید و سایز",
             "items": [
-              { "title": "مشاوره خرید", "subtitle": "انتخاب دوچرخه بر اساس قد و مسیر", "description": "بررسی نیاز، بودجه و سایز مناسب برای خرید دقیق‌تر.", "price": "رایگان", "thumbnailText": "ASK", "thumbnailColor": "#101114", "imageUrl": null },
-              { "title": "برنامه سرویس دوره‌ای", "subtitle": "برای استفاده روزانه و سفر", "description": "پیشنهاد زمان‌بندی سرویس و قطعات مصرفی بر اساس سبک استفاده.", "price": "رایگان", "thumbnailText": "PLAN", "thumbnailColor": "#D71920", "imageUrl": null }
+              { "title": "انتخاب سایز و مدل", "subtitle": "قبل از خرید دوچرخه", "description": "بررسی قد، مسیر، بودجه و مدل مناسب برای خرید دقیق‌تر.", "price": "رایگان", "thumbnailText": "ASK", "thumbnailColor": "#D71920", "imageUrl": null },
+              { "title": "بازبینی دوچرخه دست دوم", "subtitle": "قبل از خرید کارکرده", "description": "بررسی فریم، چرخ‌ها، ترمز، دنده و هزینه احتمالی تعمیر.", "price": "رزرو بازبینی", "thumbnailText": "USED", "thumbnailColor": "#6B1116", "imageUrl": null }
             ]
           }
         ]
@@ -61,10 +79,27 @@
       "style": { "cardVariant": "compact" }
     },
     {
+      "id": "booking-form",
+      "type": "service_booking_form",
+      "data": {
+        "title": "رزرو زمان سرویس",
+        "serviceLabel": "نوع خدمات",
+        "bikeLabel": "دوچرخه",
+        "timeLabel": "زمان پیشنهادی",
+        "services": [ "پنچرگیری فوری", "تنظیم دنده و ترمز", "سرویس کامل", "بازبینی قبل از سفر", "مشاوره سایز و خرید" ],
+        "bikes": [ "ETX 200 - علی رضایی", "دوچرخه شهری E-City", "ثبت دوچرخه جدید" ],
+        "timeSlots": [ "امروز ۱۶:۰۰", "فردا ۱۰:۳۰", "فردا ۱۸:۰۰", "پنجشنبه ۱۲:۰۰" ],
+        "problemPlaceholder": "مشکل، صدای غیرعادی یا درخواست خاص را بنویسید.",
+        "submitLabel": "ثبت درخواست سرویس"
+      },
+      "layout": {},
+      "style": { "sectionVariant": "form" }
+    },
+    {
       "id": "repair-status",
       "type": "status_tracker",
       "data": {
-        "title": "پیگیری تعمیرات فعال",
+        "title": "تعمیر فعال",
         "items": [
           {
             "id": "repair-203",
@@ -89,14 +124,14 @@
       "style": { "cardVariant": "compact" }
     },
     {
-      "id": "more-services",
+      "id": "service-notes",
       "type": "business_info",
       "data": {
-        "title": "خدمات تکمیلی",
+        "title": "قبل از مراجعه",
         "items": [
-          { "title": "بازبینی دوچرخه دست دوم", "subtitle": "قبل از خرید دوچرخه کارکرده", "description": "بررسی فریم، چرخ‌ها، ترمز، دنده و هزینه احتمالی تعمیر.", "price": "رزرو بازبینی" },
-          { "title": "پیکاپ و تحویل تعمیرات", "subtitle": "برای مناطق نزدیک فروشگاه", "description": "دریافت دوچرخه از مشتری و تحویل پس از سرویس.", "price": "هماهنگی" },
-          { "title": "پلن سرویس فصلی", "subtitle": "مناسب مشتری‌های استفاده روزانه", "description": "یادآوری سرویس، تخفیف قطعات مصرفی و بازبینی ایمنی دوره‌ای.", "price": "عضویت" }
+          { "title": "دوچرخه را تمیز تحویل دهید", "subtitle": "برای عیب‌یابی دقیق‌تر", "description": "اگر صدای خاصی می‌شنوید، زمان و شرایط رخ دادن آن را در توضیحات بنویسید.", "price": "بهتر" },
+          { "title": "قطعه جایگزین قبل از نصب تایید می‌شود", "subtitle": "شفافیت هزینه", "description": "اگر نیاز به قطعه جدید باشد، هزینه قبل از انجام کار برای شما ارسال می‌شود.", "price": "شفاف" },
+          { "title": "پیکاپ نزدیک فروشگاه", "subtitle": "با هماهنگی قبلی", "description": "برای مناطق نزدیک، دریافت دوچرخه و تحویل پس از سرویس قابل هماهنگی است.", "price": "هماهنگی" }
         ]
       },
       "layout": {},

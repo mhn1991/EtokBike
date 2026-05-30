@@ -1,25 +1,66 @@
 {
   "schemaVersion": 1,
   "screenId": "shop",
-  "version": 2,
+  "version": 3,
   "title": "فروشگاه",
+  "hideTitle": true,
   "sections": [
+    {
+      "id": "shop-hero",
+      "type": "hero",
+      "data": {
+        "visual": "bike",
+        "eyebrow": "کاتالوگ آماده فروش",
+        "title": "انتخاب دوچرخه بر اساس مسیر، نه فقط مدل",
+        "subtitle": "دوچرخه‌های شهری، کوهستان، جاده و کودک را با موجودی، قیمت و امکان تست حضوری ببینید.",
+        "featureTitle": "پرفروش امروز: ETX 200",
+        "featureSubtitle": "مناسب مسیر خاکی و شهری، با تنظیم کامل قبل تحویل",
+        "featurePrice": "۲۸,۵۰۰,۰۰۰ تومان",
+        "primaryActionLabel": "دیدن دوچرخه‌ها",
+        "primaryTarget": "shop",
+        "secondaryActionLabel": "مشاوره خرید",
+        "secondaryTarget": "services",
+        "stats": [
+          { "value": "۴ مدل", "label": "دوچرخه" },
+          { "value": "۷ قلم", "label": "قطعه و لوازم" },
+          { "value": "۲ عدد", "label": "ETX موجود" },
+          { "value": "رایگان", "label": "انتخاب سایز" }
+        ]
+      },
+      "layout": { "variant": "bike_shop" },
+      "style": { "emphasis": "high" }
+    },
+    {
+      "id": "shop-shortcuts",
+      "type": "category_grid",
+      "data": {
+        "title": "خرید سریع",
+        "items": [
+          { "badge": "روزانه", "title": "شهری و رفت‌وآمد", "subtitle": "سبک، راحت و کم‌هزینه", "target": "shop" },
+          { "badge": "مسیر", "title": "کوهستان و خاکی", "subtitle": "فریم مقاوم و کنترل بهتر", "target": "shop" },
+          { "badge": "ایمنی", "title": "کلاه و چراغ", "subtitle": "لوازم ضروری شروع مسیر", "target": "shop" },
+          { "badge": "سرویس", "title": "قطعات مصرفی", "subtitle": "تایر، زنجیر و لنت ترمز", "target": "shop" }
+        ]
+      },
+      "layout": { "columns": 2 },
+      "style": { "cardVariant": "compact" }
+    },
     {
       "id": "products",
       "type": "product_list",
       "data": {
-        "title": "محصولات",
-        "searchLabel": "جستجوی سریع",
+        "title": "محصولات فروشگاه",
+        "searchLabel": "جستجوی محصول",
         "searchPlaceholder": "نام دوچرخه، قطعه یا لوازم جانبی",
-        "categoryLabel": "دسته‌بندی محصول",
+        "categoryLabel": "دسته‌بندی",
         "defaultCategory": "bikes",
         "categories": [
           { "id": "bikes", "label": "دوچرخه" },
           { "id": "parts", "label": "قطعات" },
           { "id": "accessories", "label": "لوازم جانبی" }
         ],
-        "filtersTitle": "فیلترها",
-        "filtersCollapsedLabel": "نمایش فیلترها",
+        "filtersTitle": "فیلتر و مرتب‌سازی",
+        "filtersCollapsedLabel": "فیلتر موجودی و قیمت",
         "filtersExpandedLabel": "بستن فیلترها",
         "resetFiltersLabel": "حذف فیلترها",
         "emptyStateText": "محصولی برای این دسته‌بندی و فیلترها پیدا نشد.",
@@ -31,8 +72,8 @@
             "options": [
               { "id": "all", "label": "همه" },
               { "id": "in_stock", "label": "موجود" },
-              { "id": "orderable", "label": "قابل سفارش" },
-              { "id": "low_stock", "label": "موجودی محدود" }
+              { "id": "low_stock", "label": "موجودی محدود" },
+              { "id": "orderable", "label": "قابل سفارش" }
             ]
           },
           {
@@ -57,14 +98,14 @@
             ]
           }
         ],
-        "initialItems": 3,
-        "pageSize": 3,
+        "initialItems": 4,
+        "pageSize": 4,
         "loadMoreLabel": "نمایش محصولات بیشتر",
         "items": [
-          { "id": "bike-city-e", "category": "bikes", "availability": "in_stock", "priceValue": 22000000, "title": "دوچرخه شهری E-City", "subtitle": "سبک و مناسب استفاده روزانه", "description": "انتخاب مناسب برای رفت‌وآمد شهری، مسیرهای کوتاه و استفاده روزمره.", "price": "۲۲,۰۰۰,۰۰۰ تومان", "stockLabel": "موجود در فروشگاه", "thumbnailText": "CITY", "thumbnailColor": "#D71920", "imageUrl": null },
-          { "id": "bike-etx-200", "category": "bikes", "availability": "low_stock", "priceValue": 28500000, "title": "دوچرخه کوهستان ETX 200", "subtitle": "برای مسیرهای خاکی و کوهستانی", "description": "فریم مقاوم، ترمز دیسکی و فرمان پایدار برای مسیرهای ترکیبی.", "price": "۲۸,۵۰۰,۰۰۰ تومان", "stockLabel": "موجودی محدود: ۲ عدد", "thumbnailText": "MTB", "thumbnailColor": "#101114", "imageUrl": null },
-          { "id": "bike-road-r7", "category": "bikes", "availability": "orderable", "priceValue": 36000000, "title": "دوچرخه جاده R7", "subtitle": "سریع و مناسب تمرین", "description": "فرمان خم، وزن کمتر و تایر باریک برای مسیرهای آسفالت.", "price": "۳۶,۰۰۰,۰۰۰ تومان", "stockLabel": "قابل سفارش", "thumbnailText": "ROAD", "thumbnailColor": "#6B1116", "imageUrl": null },
-          { "id": "bike-kids-20", "category": "bikes", "availability": "in_stock", "priceValue": 12800000, "title": "دوچرخه کودک ۲۰", "subtitle": "ایمن و سبک", "description": "مناسب آموزش و مسیرهای کوتاه با ترمز قابل کنترل.", "price": "۱۲,۸۰۰,۰۰۰ تومان", "stockLabel": "موجود", "thumbnailText": "20", "thumbnailColor": "#2B2C30", "imageUrl": null },
+          { "id": "bike-city-e", "category": "bikes", "availability": "in_stock", "priceValue": 22000000, "title": "دوچرخه شهری E-City", "subtitle": "سبک برای رفت‌وآمد روزانه", "description": "مناسب مسیرهای شهری، پارک و استفاده روزمره با تحویل سریع و تنظیم اولیه.", "price": "۲۲,۰۰۰,۰۰۰ تومان", "stockLabel": "موجود در فروشگاه", "thumbnailText": "CITY", "thumbnailColor": "#D71920", "imageUrl": null },
+          { "id": "bike-etx-200", "category": "bikes", "availability": "low_stock", "priceValue": 28500000, "title": "دوچرخه کوهستان ETX 200", "subtitle": "فریم مقاوم و ترمز دیسکی", "description": "گزینه مطمئن برای مسیرهای ترکیبی، تمرین آخر هفته و شروع کوهستان.", "price": "۲۸,۵۰۰,۰۰۰ تومان", "stockLabel": "موجودی محدود: ۲ عدد", "thumbnailText": "MTB", "thumbnailColor": "#101114", "imageUrl": null },
+          { "id": "bike-road-r7", "category": "bikes", "availability": "orderable", "priceValue": 36000000, "title": "دوچرخه جاده R7", "subtitle": "برای تمرین سرعت", "description": "فرمان خم، وزن کمتر و تایر باریک برای مسیرهای آسفالت و تمرین منظم.", "price": "۳۶,۰۰۰,۰۰۰ تومان", "stockLabel": "قابل سفارش", "thumbnailText": "ROAD", "thumbnailColor": "#6B1116", "imageUrl": null },
+          { "id": "bike-kids-20", "category": "bikes", "availability": "in_stock", "priceValue": 12800000, "title": "دوچرخه کودک ۲۰", "subtitle": "ایمن و سبک برای آموزش", "description": "کنترل راحت، ترمز قابل اعتماد و وزن مناسب برای شروع دوچرخه‌سواری کودک.", "price": "۱۲,۸۰۰,۰۰۰ تومان", "stockLabel": "موجود", "thumbnailText": "20", "thumbnailColor": "#2B2C30", "imageUrl": null },
           { "id": "tire-29-puncture", "category": "parts", "availability": "in_stock", "priceValue": 1950000, "title": "تایر ضد پنچری", "subtitle": "سایز ۲۹ اینچ", "description": "مقاوم‌تر برای مسیرهای شهری و خاکی با آج مناسب کنترل بهتر.", "price": "۱,۹۵۰,۰۰۰ تومان", "stockLabel": "موجود", "thumbnailText": "29", "thumbnailColor": "#6B1116", "imageUrl": null },
           { "id": "brake-pad-disc", "category": "parts", "availability": "in_stock", "priceValue": 490000, "title": "لنت ترمز دیسکی", "subtitle": "ترمزگیری نرم و مطمئن", "description": "مناسب دوچرخه‌های کوهستان و شهری مجهز به ترمز دیسکی.", "price": "۴۹۰,۰۰۰ تومان", "stockLabel": "موجود", "thumbnailText": "PAD", "thumbnailColor": "#101114", "imageUrl": null },
           { "id": "chain-10s", "category": "parts", "availability": "orderable", "priceValue": 1150000, "title": "زنجیر ۱۰ سرعته", "subtitle": "تعویض دنده روان", "description": "مناسب سرویس دوره‌ای و جایگزینی زنجیر فرسوده.", "price": "۱,۱۵۰,۰۰۰ تومان", "stockLabel": "قابل سفارش", "thumbnailText": "10S", "thumbnailColor": "#D71920", "imageUrl": null },
@@ -81,11 +122,11 @@
       "id": "shop-benefits",
       "type": "business_info",
       "data": {
-        "title": "مزایای خرید از EtokBike",
+        "title": "قبل از تحویل چه می‌گیرید؟",
         "items": [
-          { "title": "امتیاز وفاداری", "subtitle": "برای خرید، سرویس و شرکت در برنامه‌ها", "description": "امتیازها در نسخه بعدی به تخفیف خدمات و قطعات تبدیل می‌شوند.", "price": "فعال" },
-          { "title": "کد تخفیف سرویس اول", "subtitle": "برای خرید دوچرخه", "description": "پس از خرید دوچرخه، اولین بازبینی ایمنی با تخفیف انجام می‌شود.", "price": "ETOK-SERVICE" },
-          { "title": "پشتیبانی سریع", "subtitle": "از طریق مرکز پیام", "description": "پیگیری سفارش، فاکتور، قطعات و خدمات از یک مسیر واحد.", "price": "پیام بدهید" }
+          { "title": "تست ترمز و دنده", "subtitle": "روی تمام دوچرخه‌ها", "description": "دوچرخه قبل از خروج از فروشگاه تنظیم و تست می‌شود.", "price": "رایگان" },
+          { "title": "کد سرویس اول", "subtitle": "بعد از خرید دوچرخه", "description": "اولین بازبینی ایمنی با تخفیف برای شما ثبت می‌شود.", "price": "ETOK-SERVICE" },
+          { "title": "پشتیبانی انتخاب", "subtitle": "قبل و بعد خرید", "description": "برای سایز، مسیر، قطعه جایگزین یا فاکتور از مرکز پیام پیگیری کنید.", "price": "فعال" }
         ]
       },
       "layout": {},
