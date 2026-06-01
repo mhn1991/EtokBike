@@ -51,6 +51,11 @@ public class MainActivity extends Activity {
     private static final int SURFACE = Color.rgb(247, 247, 248);
     private static final int BORDER = Color.rgb(226, 226, 230);
     private static final int MUTED = Color.rgb(98, 99, 104);
+    private static final int TOP_BAR_SURFACE = Color.rgb(255, 247, 247);
+    private static final int HERO_SURFACE = Color.rgb(246, 250, 251);
+    private static final int HERO_PANEL = Color.rgb(255, 255, 255);
+    private static final int HERO_BORDER = Color.rgb(218, 229, 232);
+    private static final int RED_TINT = Color.rgb(255, 235, 236);
 
     private final Map<String, JSONObject> screens = new HashMap<>();
     private final Map<String, Integer> visibleItemCounts = new HashMap<>();
@@ -76,8 +81,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setStatusBarColor(BLACK);
+        getWindow().setStatusBarColor(TOP_BAR_SURFACE);
         getWindow().setNavigationBarColor(WHITE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
         loadConfig();
@@ -322,9 +328,9 @@ public class MainActivity extends Activity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(16), dp(12), dp(16), dp(10));
-        bar.setBackgroundColor(BLACK);
+        bar.setBackground(rounded(TOP_BAR_SURFACE, 0, Color.rgb(248, 202, 205), 1));
 
-        TextView logo = text("EtokBike", 22, WHITE, true);
+        TextView logo = text("EtokBike", 22, RED, true);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
         Button messages = topIconButton("۲", R.drawable.ic_message_24);
@@ -519,11 +525,12 @@ public class MainActivity extends Activity {
             return bikeShopHero(section);
         }
 
-        LinearLayout box = panel(BLACK);
+        LinearLayout box = panel(HERO_SURFACE);
+        box.setBackground(rounded(HERO_SURFACE, 8, HERO_BORDER, 1));
         box.setPadding(dp(16), dp(16), dp(16), dp(16));
-        box.addView(text(section.getString("title"), 22, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
+        box.addView(text(section.getString("title"), 22, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 6);
-        box.addView(text(section.getString("subtitle"), 14, Color.rgb(230, 230, 232), false), new LinearLayout.LayoutParams(-1, -2));
+        box.addView(text(section.getString("subtitle"), 14, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 12);
         Button action = button(section.getString("actionLabel"), true);
         String target = section.optString("target", "shop");
@@ -533,23 +540,24 @@ public class MainActivity extends Activity {
     }
 
     private View bikeShopHero(JSONObject section) throws Exception {
-        LinearLayout box = panel(Color.rgb(18, 19, 23));
+        LinearLayout box = panel(HERO_SURFACE);
+        box.setBackground(rounded(HERO_SURFACE, 8, HERO_BORDER, 1));
         box.setPadding(dp(16), dp(16), dp(16), dp(16));
 
         String eyebrow = section.optString("eyebrow", "");
         if (!eyebrow.isEmpty()) {
-            TextView chip = pillText(eyebrow, 12, WHITE, Color.rgb(72, 24, 27), RED);
+            TextView chip = pillText(eyebrow, 12, RED, RED_TINT, Color.rgb(248, 190, 194));
             LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(-2, dp(34));
             chipParams.setMargins(dp(0), dp(0), dp(0), dp(10));
             box.addView(chip, chipParams);
         }
 
-        TextView title = text(section.getString("title"), 25, WHITE, true);
+        TextView title = text(section.getString("title"), 25, BLACK, true);
         title.setMaxLines(3);
         box.addView(title, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 7);
 
-        TextView subtitle = text(section.getString("subtitle"), 14, Color.rgb(224, 225, 229), false);
+        TextView subtitle = text(section.getString("subtitle"), 14, Color.rgb(70, 71, 76), false);
         subtitle.setMaxLines(3);
         box.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
 
@@ -558,7 +566,7 @@ public class MainActivity extends Activity {
         bike.setImageResource(heroVisualResource(section.optString("visual", "bike")));
         bike.setAdjustViewBounds(true);
         bike.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        bike.setBackground(rounded(Color.rgb(29, 30, 35), 8, Color.rgb(58, 60, 66), 1));
+        bike.setBackground(rounded(HERO_PANEL, 8, HERO_BORDER, 1));
         bike.setPadding(dp(8), dp(8), dp(8), dp(8));
         box.addView(bike, new LinearLayout.LayoutParams(-1, dp(150)));
 
@@ -569,17 +577,17 @@ public class MainActivity extends Activity {
             feature.setOrientation(LinearLayout.VERTICAL);
             feature.setGravity(Gravity.RIGHT);
             feature.setPadding(dp(12), dp(12), dp(12), dp(12));
-            feature.setBackground(rounded(Color.rgb(31, 32, 37), 8, Color.rgb(70, 72, 78), 1));
-            feature.addView(text(featureTitle, 16, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
+            feature.setBackground(rounded(HERO_PANEL, 8, HERO_BORDER, 1));
+            feature.addView(text(featureTitle, 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
             String featureSubtitle = section.optString("featureSubtitle", "");
             if (!featureSubtitle.isEmpty()) {
                 addSpace(feature, 4);
-                feature.addView(text(featureSubtitle, 12, Color.rgb(205, 207, 213), false), new LinearLayout.LayoutParams(-1, -2));
+                feature.addView(text(featureSubtitle, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
             }
             String featurePrice = section.optString("featurePrice", "");
             if (!featurePrice.isEmpty()) {
                 addSpace(feature, 7);
-                feature.addView(text(featurePrice, 14, Color.rgb(255, 208, 103), true), new LinearLayout.LayoutParams(-1, -2));
+                feature.addView(text(featurePrice, 14, RED, true), new LinearLayout.LayoutParams(-1, -2));
             }
             box.addView(feature, new LinearLayout.LayoutParams(-1, -2));
         }
@@ -596,8 +604,8 @@ public class MainActivity extends Activity {
         Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
         primary.setOnClickListener(v -> openScreen(section.optString("primaryTarget", section.optString("target", "shop"))));
         Button secondary = button(section.optString("secondaryActionLabel", "رزرو سرویس"), false);
-        secondary.setTextColor(WHITE);
-        secondary.setBackground(rounded(Color.rgb(35, 36, 41), 8, Color.rgb(92, 94, 102), 1));
+        secondary.setTextColor(RED);
+        secondary.setBackground(rounded(HERO_PANEL, 8, RED, 1));
         secondary.setOnClickListener(v -> openScreen(section.optString("secondaryTarget", "services")));
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
@@ -622,10 +630,10 @@ public class MainActivity extends Activity {
                 stat.setOrientation(LinearLayout.VERTICAL);
                 stat.setGravity(Gravity.RIGHT);
                 stat.setPadding(dp(10), dp(9), dp(10), dp(9));
-                stat.setBackground(rounded(Color.rgb(27, 28, 33), 8, Color.rgb(55, 57, 64), 1));
-                stat.addView(text(item.getString("value"), 15, WHITE, true), new LinearLayout.LayoutParams(-1, -2));
+                stat.setBackground(rounded(HERO_PANEL, 8, HERO_BORDER, 1));
+                stat.addView(text(item.getString("value"), 15, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
                 addSpace(stat, 2);
-                TextView label = text(item.getString("label"), 11, Color.rgb(187, 189, 196), false);
+                TextView label = text(item.getString("label"), 11, MUTED, false);
                 label.setMaxLines(2);
                 stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
@@ -1775,7 +1783,7 @@ public class MainActivity extends Activity {
         Button action = button(label, false);
         action.setTextColor(WHITE);
         action.setTextSize(13);
-        action.setBackground(rounded(Color.rgb(28, 29, 34), 12, Color.rgb(74, 76, 84), 1));
+        action.setBackground(rounded(RED, 12, Color.rgb(190, 22, 29), 1));
         action.setCompoundDrawablesWithIntrinsicBounds(iconResource, 0, 0, 0);
         action.setCompoundDrawablePadding(dp(4));
         return action;

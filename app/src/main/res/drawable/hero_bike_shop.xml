@@ -6,24 +6,24 @@
     android:viewportHeight="160">
 
     <path
-        android:fillColor="#23242A"
+        android:fillColor="#F8FBFC"
         android:pathData="M8,8 H352 A8,8 0,0 1,360 16 V144 A8,8 0,0 1,352 152 H8 A8,8 0,0 1,0 144 V16 A8,8 0,0 1,8 8" />
     <path
-        android:fillColor="#331416"
+        android:fillColor="#FFE8EA"
         android:pathData="M214,16 H338 A6,6 0,0 1,344 22 V88 A6,6 0,0 1,338 94 H198 Z" />
     <path
-        android:fillColor="#2F3036"
+        android:fillColor="#DDE7EA"
         android:pathData="M24,116 H332 A4,4 0,0 1,336 120 V125 A4,4 0,0 1,332 129 H24 A4,4 0,0 1,20 125 V120 A4,4 0,0 1,24 116" />
 
     <path
         android:fillColor="@android:color/transparent"
         android:pathData="M91,115 m-32,0 a32,32 0,1 0,64 0 a32,32 0,1 0,-64 0"
-        android:strokeColor="#F4F4F5"
+        android:strokeColor="#6F7782"
         android:strokeWidth="7" />
     <path
         android:fillColor="@android:color/transparent"
         android:pathData="M264,115 m-32,0 a32,32 0,1 0,64 0 a32,32 0,1 0,-64 0"
-        android:strokeColor="#F4F4F5"
+        android:strokeColor="#6F7782"
         android:strokeWidth="7" />
     <path
         android:fillColor="@android:color/transparent"
