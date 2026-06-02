@@ -9,7 +9,11 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -32,6 +36,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
@@ -40,10 +45,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class MainActivity extends Activity {
     private static final String BUNDLED_MANIFEST_PATH = "mock/manifest.json";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
+    private static final long TELEMETRY_HEARTBEAT_MS = 60000L;
 
     private static final int RED = Color.rgb(215, 25, 32);
     private static final int BLACK = Color.rgb(16, 17, 20);
@@ -67,6 +74,14 @@ public class MainActivity extends Activity {
     private final Map<String, String> selectedFilters = new HashMap<>();
     private final Map<String, Boolean> expandedFilterSections = new HashMap<>();
     private final Map<String, Boolean> expandedAccountSections = new HashMap<>();
+    private final Handler telemetryHandler = new Handler(Looper.getMainLooper());
+    private final Runnable telemetryHeartbeat = new Runnable() {
+        @Override
+        public void run() {
+            trackEvent("heartbeat", currentScreen, null, null);
+            telemetryHandler.postDelayed(this, TELEMETRY_HEARTBEAT_MS);
+        }
+    };
     private ConfigDatabase configDatabase;
     private JSONObject config;
     private ScrollView scrollView;
@@ -76,10 +91,13 @@ public class MainActivity extends Activity {
     private String currentScreen = "home";
     private JSONObject activeProgramDetail;
     private int cartCount = 0;
+    private String telemetryDeviceId;
+    private String telemetrySessionId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initializeTelemetry();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setStatusBarColor(TOP_BAR_SURFACE);
         getWindow().setNavigationBarColor(WHITE);
@@ -89,7 +107,22 @@ public class MainActivity extends Activity {
         loadConfig();
         setContentView(buildShell());
         renderScreen(currentScreen);
+        trackEvent("app_open", currentScreen, null, deviceTelemetryMetadata());
+        trackEvent("screen_view", currentScreen, null, null);
         checkForConfigUpdate();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        telemetryHandler.removeCallbacks(telemetryHeartbeat);
+        telemetryHandler.postDelayed(telemetryHeartbeat, TELEMETRY_HEARTBEAT_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        telemetryHandler.removeCallbacks(telemetryHeartbeat);
+        super.onPause();
     }
 
     private void loadConfig() {
@@ -101,6 +134,103 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             throw new IllegalStateException("Cannot load app config", e);
         }
+    }
+
+    private void initializeTelemetry() {
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        telemetryDeviceId = androidId == null || androidId.trim().isEmpty()
+                ? UUID.randomUUID().toString()
+                : androidId;
+        telemetrySessionId = UUID.randomUUID().toString();
+    }
+
+    private void trackAction(String action) {
+        trackEvent("action", currentScreen, action, null);
+    }
+
+    private void trackAction(String action, JSONObject metadata) {
+        trackEvent("action", currentScreen, action, metadata);
+    }
+
+    private void trackError(String action, Exception exception) {
+        try {
+            JSONObject metadata = new JSONObject();
+            metadata.put("exception", exception.getClass().getSimpleName());
+            metadata.put("message", exception.getMessage() == null ? "" : exception.getMessage());
+            trackEvent("error", currentScreen, action, metadata);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void trackEvent(String eventName, String screenId, String action, JSONObject metadata) {
+        String url = telemetryUrl();
+        if (url.isEmpty() || telemetryDeviceId == null || telemetryDeviceId.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("device_id", telemetryDeviceId);
+            payload.put("session_id", telemetrySessionId);
+            payload.put("platform", "android");
+            payload.put("app_version", config == null ? "0" : String.valueOf(config.optInt("appVersion", 0)));
+            payload.put("event_name", eventName);
+            if (screenId != null && !screenId.trim().isEmpty()) {
+                payload.put("screen_id", screenId);
+            }
+            if (action != null && !action.trim().isEmpty()) {
+                payload.put("action", action);
+            }
+            if (metadata != null) {
+                payload.put("metadata", metadata);
+            }
+
+            new Thread(() -> {
+                try {
+                    postJson(url, payload.toString());
+                } catch (Exception ignored) {
+                }
+            }).start();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private JSONObject deviceTelemetryMetadata() {
+        JSONObject metadata = new JSONObject();
+        try {
+            metadata.put("manufacturer", Build.MANUFACTURER);
+            metadata.put("model", Build.MODEL);
+            metadata.put("sdk", Build.VERSION.SDK_INT);
+        } catch (Exception ignored) {
+        }
+        return metadata;
+    }
+
+    private JSONObject metadata(String key, String value) {
+        JSONObject metadata = new JSONObject();
+        try {
+            metadata.put(key, value == null ? "" : value);
+        } catch (Exception ignored) {
+        }
+        return metadata;
+    }
+
+    private String telemetryUrl() {
+        if (config == null || config.optJSONObject("remoteConfig") == null) {
+            return "";
+        }
+
+        JSONObject remoteConfig = config.optJSONObject("remoteConfig");
+        String url = remoteConfig.optString("telemetryUrl", "").trim();
+        if (!url.isEmpty()) {
+            return url;
+        }
+
+        String manifestUrl = remoteConfig.optString("manifestUrl", "").trim();
+        if (manifestUrl.endsWith("/manifest")) {
+            return manifestUrl.substring(0, manifestUrl.length() - "/manifest".length()) + "/telemetry";
+        }
+        return "";
     }
 
     private JSONObject loadManifest() throws Exception {
@@ -200,11 +330,14 @@ public class MainActivity extends Activity {
                             currentScreen = "home";
                         }
                         renderScreen(currentScreen);
+                        trackEvent("config_update", currentScreen, "manifest_updated", metadata("appVersion", String.valueOf(remoteVersion)));
                     } catch (Exception e) {
+                        trackError("config_update_apply", e);
                         Toast.makeText(MainActivity.this, "خطا در به‌روزرسانی تنظیمات", Toast.LENGTH_SHORT).show();
                     }
                 });
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                trackError("config_update", e);
             }
         }).start();
     }
@@ -334,7 +467,10 @@ public class MainActivity extends Activity {
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
         Button messages = topIconButton("۲", R.drawable.ic_message_24);
-        messages.setOnClickListener(v -> openScreen("messages"));
+        messages.setOnClickListener(v -> {
+            trackAction("top_messages");
+            openScreen("messages");
+        });
         bar.addView(messages, new LinearLayout.LayoutParams(dp(58), dp(44)));
 
         View actionSpacer = new View(this);
@@ -342,7 +478,10 @@ public class MainActivity extends Activity {
 
         cartButton = topIconButton("", R.drawable.ic_cart_24);
         updateCartButton();
-        cartButton.setOnClickListener(v -> openScreen("cart"));
+        cartButton.setOnClickListener(v -> {
+            trackAction("top_cart");
+            openScreen("cart");
+        });
         LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(58), dp(44));
         bar.addView(cartButton, cartParams);
         return bar;
@@ -362,12 +501,16 @@ public class MainActivity extends Activity {
                 tab.setSingleLine(true);
                 tab.setEllipsize(TextUtils.TruncateAt.END);
                 tab.setBackground(selected ? rounded(SURFACE, 20, 0, 0) : rounded(WHITE, 20, 0, 0));
-                tab.setOnClickListener(v -> openScreen(screen));
+                tab.setOnClickListener(v -> {
+                    trackAction("bottom_navigation", metadata("target", screen));
+                    openScreen(screen);
+                });
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
                 params.setMargins(dp(2), dp(0), dp(2), dp(0));
                 nav.addView(tab, params);
             }
         } catch (Exception e) {
+            trackError("render_navigation", e);
             Toast.makeText(this, "خطا در نمایش ناوبری", Toast.LENGTH_SHORT).show();
         }
     }
@@ -394,9 +537,13 @@ public class MainActivity extends Activity {
         JSONObject screen = screens.get(screenId);
         if (screen == null) return;
 
+        String previousScreen = currentScreen;
         currentScreen = screenId;
         content.removeAllViews();
         renderNavigation();
+        if (!screenId.equals(previousScreen)) {
+            trackEvent("screen_view", screenId, "navigate", null);
+        }
 
         try {
             if (!screen.optBoolean("hideTitle", false)) {
@@ -415,6 +562,7 @@ public class MainActivity extends Activity {
                 scrollToTop();
             }
         } catch (Exception e) {
+            trackError("render_screen", e);
             Toast.makeText(this, "خطا در نمایش صفحه", Toast.LENGTH_SHORT).show();
         }
     }
@@ -425,13 +573,20 @@ public class MainActivity extends Activity {
             return;
         }
 
+        String previousScreen = currentScreen;
         currentScreen = "program-detail";
         content.removeAllViews();
         renderNavigation();
+        if (!"program-detail".equals(previousScreen)) {
+            trackEvent("screen_view", "program-detail", "program_detail", null);
+        }
 
         try {
             Button back = button("بازگشت به برنامه‌ها", false);
-            back.setOnClickListener(v -> renderScreen("events"));
+            back.setOnClickListener(v -> {
+                trackAction("program_detail_back");
+                renderScreen("events");
+            });
             content.addView(back, new LinearLayout.LayoutParams(-1, dp(44)));
             addSpace(content, 12);
 
@@ -448,6 +603,7 @@ public class MainActivity extends Activity {
             }
             scrollToTop();
         } catch (Exception e) {
+            trackError("render_program_detail", e);
             Toast.makeText(this, "خطا در نمایش برنامه", Toast.LENGTH_SHORT).show();
         }
     }
@@ -534,7 +690,10 @@ public class MainActivity extends Activity {
         addSpace(box, 12);
         Button action = button(section.getString("actionLabel"), true);
         String target = section.optString("target", "shop");
-        action.setOnClickListener(v -> openScreen(target));
+        action.setOnClickListener(v -> {
+            trackAction("hero_primary", metadata("target", target));
+            openScreen(target);
+        });
         box.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
         return box;
     }
@@ -602,11 +761,19 @@ public class MainActivity extends Activity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
-        primary.setOnClickListener(v -> openScreen(section.optString("primaryTarget", section.optString("target", "shop"))));
+        primary.setOnClickListener(v -> {
+            String target = section.optString("primaryTarget", section.optString("target", "shop"));
+            trackAction("hero_primary", metadata("target", target));
+            openScreen(target);
+        });
         Button secondary = button(section.optString("secondaryActionLabel", "رزرو سرویس"), false);
         secondary.setTextColor(RED);
         secondary.setBackground(rounded(HERO_PANEL, 8, RED, 1));
-        secondary.setOnClickListener(v -> openScreen(section.optString("secondaryTarget", "services")));
+        secondary.setOnClickListener(v -> {
+            String target = section.optString("secondaryTarget", "services");
+            trackAction("hero_secondary", metadata("target", target));
+            openScreen(target);
+        });
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
         LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
@@ -731,6 +898,7 @@ public class MainActivity extends Activity {
             tab.setPadding(dp(16), dp(9), dp(16), dp(9));
             tab.setBackground(rounded(active ? RED : SURFACE, 22, active ? RED : BORDER, 1));
             tab.setOnClickListener(v -> {
+                trackAction("offer_tab", metadata("subsection", id));
                 selectedOfferSections.put(key, id);
                 renderScreen(currentScreen);
             });
@@ -806,6 +974,7 @@ public class MainActivity extends Activity {
         card.setBackgroundColor(WHITE);
         String id = item.getString("id");
         card.setOnClickListener(v -> {
+            trackAction("program_open", metadata("program", id));
             selectedPrograms.put(key, id);
             activeProgramDetail = item;
             renderScreen("program-detail");
@@ -823,6 +992,7 @@ public class MainActivity extends Activity {
         addSpace(card, 8);
         Button action = button(isFutureProgram(item) ? item.optString("bookLabel", "رزرو برنامه") : item.optString("viewLabel", "مشاهده برنامه"), false);
         action.setOnClickListener(v -> {
+            trackAction("program_open", metadata("program", id));
             selectedPrograms.put(key, id);
             activeProgramDetail = item;
             renderScreen("program-detail");
@@ -851,7 +1021,10 @@ public class MainActivity extends Activity {
         if (isFutureProgram(item)) {
             addSpace(card, 12);
             Button book = button(item.optString("bookLabel", "رزرو برنامه"), true);
-            book.setOnClickListener(v -> Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show());
+            book.setOnClickListener(v -> {
+                trackAction("program_book_sample", metadata("program", item.optString("id", "")));
+                Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show();
+            });
             card.addView(book, new LinearLayout.LayoutParams(-1, dp(44)));
         }
         return card;
@@ -979,6 +1152,7 @@ public class MainActivity extends Activity {
             String id = department.getString("id");
             LinearLayout card = panel(id.equals(selected) ? SURFACE : WHITE);
             card.setOnClickListener(v -> {
+                trackAction("message_department_open", metadata("department", id));
                 selectedMessageDepartments.put(key, id);
                 renderScreen(currentScreen);
             });
@@ -1017,9 +1191,18 @@ public class MainActivity extends Activity {
             Button remove = button("حذف", false);
             Button minus = button("-", false);
             Button plus = button("+", false);
-            remove.setOnClickListener(v -> Toast.makeText(this, "آیتم از سبد نمونه حذف شد", Toast.LENGTH_SHORT).show());
-            minus.setOnClickListener(v -> Toast.makeText(this, "تعداد کاهش یافت", Toast.LENGTH_SHORT).show());
-            plus.setOnClickListener(v -> Toast.makeText(this, "تعداد افزایش یافت", Toast.LENGTH_SHORT).show());
+            remove.setOnClickListener(v -> {
+                trackAction("cart_remove_sample");
+                Toast.makeText(this, "آیتم از سبد نمونه حذف شد", Toast.LENGTH_SHORT).show();
+            });
+            minus.setOnClickListener(v -> {
+                trackAction("cart_decrease_sample");
+                Toast.makeText(this, "تعداد کاهش یافت", Toast.LENGTH_SHORT).show();
+            });
+            plus.setOnClickListener(v -> {
+                trackAction("cart_increase_sample");
+                Toast.makeText(this, "تعداد افزایش یافت", Toast.LENGTH_SHORT).show();
+            });
             controls.addView(remove, new LinearLayout.LayoutParams(0, dp(40), 1));
             controls.addView(minus, new LinearLayout.LayoutParams(0, dp(40), 1));
             controls.addView(plus, new LinearLayout.LayoutParams(0, dp(40), 1));
@@ -1035,7 +1218,10 @@ public class MainActivity extends Activity {
         total.addView(text(data.getString("total"), 20, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(total, 10);
         Button checkout = button(data.optString("checkoutLabel", "ثبت سفارش"), true);
-        checkout.setOnClickListener(v -> Toast.makeText(this, "سفارش نمونه ثبت شد", Toast.LENGTH_SHORT).show());
+        checkout.setOnClickListener(v -> {
+            trackAction("checkout_sample");
+            Toast.makeText(this, "سفارش نمونه ثبت شد", Toast.LENGTH_SHORT).show();
+        });
         total.addView(checkout, new LinearLayout.LayoutParams(-1, dp(46)));
         wrap.addView(total, new LinearLayout.LayoutParams(-1, -2));
         return wrap;
@@ -1062,7 +1248,10 @@ public class MainActivity extends Activity {
         addSpace(card, 10);
 
         Button submit = button(data.optString("submitLabel", "ثبت درخواست سرویس"), true);
-        submit.setOnClickListener(v -> Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show());
+        submit.setOnClickListener(v -> {
+            trackAction("service_booking_submit_sample");
+            Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
+        });
         card.addView(submit, new LinearLayout.LayoutParams(-1, dp(46)));
         return card;
     }
@@ -1220,6 +1409,7 @@ public class MainActivity extends Activity {
 
         Button send = button(department.optString("sendLabel", "ارسال پیام"), true);
         send.setOnClickListener(v -> {
+            trackAction("message_send_sample", metadata("department", department.optString("id", "")));
             input.setText("");
             Toast.makeText(this, "پیام برای " + department.optString("title", "واحد پشتیبانی") + " ثبت شد", Toast.LENGTH_SHORT).show();
         });
@@ -1268,6 +1458,7 @@ public class MainActivity extends Activity {
             int nextVisible = Math.min(visible + pageSize, items.size());
             more.setText(more.getText() + " (" + visible + "/" + items.size() + ")");
             more.setOnClickListener(v -> {
+                trackAction("product_load_more", metadata("visible", String.valueOf(nextVisible)));
                 visibleItemCounts.put(key, nextVisible);
                 renderScreen(currentScreen);
             });
@@ -1295,7 +1486,9 @@ public class MainActivity extends Activity {
         addSpace(box, 8);
         Button apply = button("اعمال جستجو", false);
         apply.setOnClickListener(v -> {
-            searchQueries.put(key, input.getText().toString().trim());
+            String value = input.getText().toString().trim();
+            trackAction("product_search", metadata("query", value));
+            searchQueries.put(key, value);
             visibleItemCounts.remove(key);
             renderScreen(currentScreen);
         });
@@ -1382,6 +1575,7 @@ public class MainActivity extends Activity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String newCategory = ids.get(position);
                 if (!newCategory.equals(selectedCategory)) {
+                    trackAction("product_category_filter", metadata("category", newCategory));
                     selectedCategories.put(key, newCategory);
                     visibleItemCounts.remove(key);
                     renderScreen(currentScreen);
@@ -1405,6 +1599,7 @@ public class MainActivity extends Activity {
                 : section.optString("filtersCollapsedLabel", section.optString("filtersTitle", "")), false);
         toggle.setTextColor(BLACK);
         toggle.setOnClickListener(v -> {
+            trackAction(expanded ? "product_filters_collapse" : "product_filters_expand");
             expandedFilterSections.put(key, !expanded);
             renderScreen(currentScreen);
         });
@@ -1426,6 +1621,7 @@ public class MainActivity extends Activity {
         Button reset = button(section.optString("resetFiltersLabel", ""), false);
         reset.setOnClickListener(v -> {
             try {
+                trackAction("product_filters_reset");
                 JSONArray filterList = section.getJSONArray("filters");
                 for (int i = 0; i < filterList.length(); i++) {
                     selectedFilters.remove(key + ":" + filterList.getJSONObject(i).getString("id"));
@@ -1433,6 +1629,7 @@ public class MainActivity extends Activity {
                 visibleItemCounts.remove(key);
                 renderScreen(currentScreen);
             } catch (Exception e) {
+                trackError("product_filters_reset", e);
                 Toast.makeText(this, "خطا در حذف فیلترها", Toast.LENGTH_SHORT).show();
             }
         });
@@ -1476,10 +1673,12 @@ public class MainActivity extends Activity {
                     String stateKey = key + ":" + filterId;
                     String newValue = ids.get(position);
                     if (!newValue.equals(selectedFilters.get(stateKey)) && !isDefaultFilter(filter, newValue)) {
+                        trackAction("product_filter", metadata(filterId, newValue));
                         selectedFilters.put(stateKey, newValue);
                         visibleItemCounts.remove(key);
                         renderScreen(currentScreen);
                     } else if (selectedFilters.containsKey(stateKey) && isDefaultFilter(filter, newValue)) {
+                        trackAction("product_filter_reset", metadata("filter", filterId));
                         selectedFilters.remove(stateKey);
                         visibleItemCounts.remove(key);
                         renderScreen(currentScreen);
@@ -1588,6 +1787,7 @@ public class MainActivity extends Activity {
         boolean expanded = expandedAccountSections.containsKey(key) && expandedAccountSections.get(key);
         Button toggle = button(expanded ? item.optString("collapseLabel", "بستن وضعیت") : item.optString("expandLabel", "مشاهده وضعیت"), false);
         toggle.setOnClickListener(v -> {
+            trackAction(expanded ? "status_collapse" : "status_expand", metadata("item", item.optString("id", "")));
             expandedAccountSections.put(key, !expanded);
             renderScreen(currentScreen);
         });
@@ -1630,7 +1830,10 @@ public class MainActivity extends Activity {
         card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         if (navigable) {
             String target = item.optString("target", "shop");
-            card.setOnClickListener(v -> openScreen(target));
+            card.setOnClickListener(v -> {
+                trackAction("shortcut_card", metadata("target", target));
+                openScreen(target);
+            });
         }
         return card;
     }
@@ -1680,6 +1883,7 @@ public class MainActivity extends Activity {
         addSpace(card, 12);
         Button action = button("افزودن / رزرو", false);
         action.setOnClickListener(v -> {
+            trackAction("add_to_cart_sample", metadata("product", item.optString("id", item.optString("title", ""))));
             cartCount++;
             updateCartButton();
             Toast.makeText(this, "به سبد نمونه اضافه شد", Toast.LENGTH_SHORT).show();
@@ -1819,6 +2023,32 @@ public class MainActivity extends Activity {
         connection.setReadTimeout(5000);
         connection.setRequestMethod("GET");
         connection.setRequestProperty("Accept", "application/json");
+
+        int code = connection.getResponseCode();
+        if (code < 200 || code >= 300) {
+            connection.disconnect();
+            throw new IllegalStateException("HTTP " + code);
+        }
+
+        try {
+            return readStream(connection.getInputStream());
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private String postJson(String urlValue, String json) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlValue).openConnection();
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(5000);
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        connection.setDoOutput(true);
+
+        OutputStream output = connection.getOutputStream();
+        output.write(json.getBytes("UTF-8"));
+        output.close();
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
