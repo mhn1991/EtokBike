@@ -3,6 +3,8 @@ package com.etokbike.app;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -21,6 +23,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.ArrayAdapter;
@@ -39,6 +42,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.ArrayList;
@@ -87,10 +91,13 @@ public class MainActivity extends Activity {
     private ScrollView scrollView;
     private LinearLayout content;
     private LinearLayout nav;
+    private Button messagesButton;
     private Button cartButton;
     private String currentScreen = "home";
     private JSONObject activeProgramDetail;
     private int cartCount = 0;
+    private int unreadMessageCount = 0;
+    private final Map<String, JSONObject> cartItems = new HashMap<>();
     private String telemetryDeviceId;
     private String telemetrySessionId;
 
@@ -109,6 +116,7 @@ public class MainActivity extends Activity {
         renderScreen(currentScreen);
         trackEvent("app_open", currentScreen, null, deviceTelemetryMetadata());
         trackEvent("screen_view", currentScreen, null, null);
+        refreshMobileState();
         checkForConfigUpdate();
     }
 
@@ -117,6 +125,7 @@ public class MainActivity extends Activity {
         super.onResume();
         telemetryHandler.removeCallbacks(telemetryHeartbeat);
         telemetryHandler.postDelayed(telemetryHeartbeat, TELEMETRY_HEARTBEAT_MS);
+        refreshMobileState();
     }
 
     @Override
@@ -330,6 +339,7 @@ public class MainActivity extends Activity {
                             currentScreen = "home";
                         }
                         renderScreen(currentScreen);
+                        refreshMobileState();
                         trackEvent("config_update", currentScreen, "manifest_updated", metadata("appVersion", String.valueOf(remoteVersion)));
                     } catch (Exception e) {
                         trackError("config_update_apply", e);
@@ -466,12 +476,13 @@ public class MainActivity extends Activity {
         TextView logo = text("EtokBike", 22, RED, true);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button messages = topIconButton("۲", R.drawable.ic_message_24);
-        messages.setOnClickListener(v -> {
+        messagesButton = topIconButton("", R.drawable.ic_message_24);
+        updateMessageButton();
+        messagesButton.setOnClickListener(v -> {
             trackAction("top_messages");
             openScreen("messages");
         });
-        bar.addView(messages, new LinearLayout.LayoutParams(dp(58), dp(44)));
+        bar.addView(messagesButton, new LinearLayout.LayoutParams(dp(58), dp(44)));
 
         View actionSpacer = new View(this);
         bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(8), 1));
@@ -1022,12 +1033,40 @@ public class MainActivity extends Activity {
             addSpace(card, 12);
             Button book = button(item.optString("bookLabel", "رزرو برنامه"), true);
             book.setOnClickListener(v -> {
-                trackAction("program_book_sample", metadata("program", item.optString("id", "")));
-                Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show();
+                trackAction("program_book", metadata("program", item.optString("id", "")));
+                submitProgramBooking(item);
             });
             card.addView(book, new LinearLayout.LayoutParams(-1, dp(44)));
         }
         return card;
+    }
+
+    private void submitProgramBooking(JSONObject item) {
+        String url = remoteUrl("programBookingsUrl", "/program-bookings");
+        if (url.isEmpty()) {
+            Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("program", item.optString("id", ""));
+            payload.put("customer_name", "Mobile Customer");
+            payload.put("attendees", 1);
+
+            new Thread(() -> {
+                try {
+                    postJson(url, payload.toString());
+                    runOnUiThread(() -> Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show());
+                } catch (Exception e) {
+                    trackError("program_book", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در رزرو برنامه", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("program_book_payload", e);
+            Toast.makeText(this, "خطا در رزرو برنامه", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private View gallery(JSONArray photos) throws Exception {
@@ -1219,21 +1258,75 @@ public class MainActivity extends Activity {
         addSpace(total, 10);
         Button checkout = button(data.optString("checkoutLabel", "ثبت سفارش"), true);
         checkout.setOnClickListener(v -> {
-            trackAction("checkout_sample");
-            Toast.makeText(this, "سفارش نمونه ثبت شد", Toast.LENGTH_SHORT).show();
+            trackAction("checkout");
+            submitOrder();
         });
         total.addView(checkout, new LinearLayout.LayoutParams(-1, dp(46)));
         wrap.addView(total, new LinearLayout.LayoutParams(-1, -2));
         return wrap;
     }
 
+    private void submitOrder() {
+        if (cartItems.isEmpty()) {
+            Toast.makeText(this, "ابتدا محصولی به سبد اضافه کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String url = remoteUrl("ordersUrl", "/orders");
+        if (url.isEmpty()) {
+            cartItems.clear();
+            cartCount = 0;
+            updateCartButton();
+            Toast.makeText(this, "سفارش ثبت شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("customer_name", "Mobile Customer");
+            payload.put("fulfillment_method", "pickup");
+            payload.put("device_id", telemetryDeviceId);
+            JSONArray items = new JSONArray();
+            for (String key : cartItems.keySet()) {
+                JSONObject product = cartItems.get(key);
+                JSONObject orderItem = new JSONObject();
+                int quantity = product.optInt("quantity", 1);
+                orderItem.put("product_id", product.optString("id", key));
+                orderItem.put("title", product.optString("title", key));
+                orderItem.put("quantity", quantity);
+                orderItem.put("unit_price", product.optInt("priceValue", 0));
+                items.put(orderItem);
+            }
+            payload.put("items", items);
+
+            new Thread(() -> {
+                try {
+                    postJson(url, payload.toString());
+                    runOnUiThread(() -> {
+                        cartItems.clear();
+                        cartCount = 0;
+                        updateCartButton();
+                        Toast.makeText(this, "سفارش ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshMobileState();
+                    });
+                } catch (Exception e) {
+                    trackError("checkout", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در ثبت سفارش", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("checkout_payload", e);
+            Toast.makeText(this, "خطا در ثبت سفارش", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private View serviceBookingForm(JSONObject data) throws Exception {
         LinearLayout card = panel(WHITE);
-        card.addView(dropdownField(data.getString("serviceLabel"), data.getJSONArray("services")), new LinearLayout.LayoutParams(-1, -2));
+        Spinner service = addDropdownField(card, data.getString("serviceLabel"), data.getJSONArray("services"));
         addSpace(card, 10);
-        card.addView(dropdownField(data.getString("bikeLabel"), data.getJSONArray("bikes")), new LinearLayout.LayoutParams(-1, -2));
+        Spinner bike = addDropdownField(card, data.getString("bikeLabel"), data.getJSONArray("bikes"));
         addSpace(card, 10);
-        card.addView(dropdownField(data.getString("timeLabel"), data.getJSONArray("timeSlots")), new LinearLayout.LayoutParams(-1, -2));
+        Spinner time = addDropdownField(card, data.getString("timeLabel"), data.getJSONArray("timeSlots"));
         addSpace(card, 10);
 
         EditText problem = new EditText(this);
@@ -1249,14 +1342,20 @@ public class MainActivity extends Activity {
 
         Button submit = button(data.optString("submitLabel", "ثبت درخواست سرویس"), true);
         submit.setOnClickListener(v -> {
-            trackAction("service_booking_submit_sample");
-            Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
+            trackAction("service_booking_submit");
+            submitServiceBooking(
+                    stringValue(service.getSelectedItem()),
+                    stringValue(bike.getSelectedItem()),
+                    stringValue(time.getSelectedItem()),
+                    problem.getText().toString().trim(),
+                    problem
+            );
         });
         card.addView(submit, new LinearLayout.LayoutParams(-1, dp(46)));
         return card;
     }
 
-    private View dropdownField(String label, JSONArray options) throws Exception {
+    private Spinner addDropdownField(LinearLayout parent, String label, JSONArray options) throws Exception {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.RIGHT);
@@ -1272,7 +1371,8 @@ public class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         box.addView(spinner, new LinearLayout.LayoutParams(-1, dp(48)));
-        return box;
+        parent.addView(box, new LinearLayout.LayoutParams(-1, -2));
+        return spinner;
     }
 
     private View statusTrackers(JSONObject section) throws Exception {
@@ -1289,6 +1389,40 @@ public class MainActivity extends Activity {
             list.addView(card, params);
         }
         return list;
+    }
+
+    private void submitServiceBooking(String service, String bike, String time, String problem, EditText problemInput) {
+        String url = remoteUrl("serviceBookingsUrl", "/service-bookings");
+        if (url.isEmpty()) {
+            Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("customer_name", "Mobile Customer");
+            payload.put("service_type", service);
+            payload.put("bike_label", bike);
+            payload.put("preferred_time", time);
+            payload.put("problem_description", problem);
+
+            new Thread(() -> {
+                try {
+                    postJson(url, payload.toString());
+                    runOnUiThread(() -> {
+                        problemInput.setText("");
+                        Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshMobileState();
+                    });
+                } catch (Exception e) {
+                    trackError("service_booking_submit", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در ثبت درخواست سرویس", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("service_booking_payload", e);
+            Toast.makeText(this, "خطا در ثبت درخواست سرویس", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private View bikeProfiles(JSONArray items) throws Exception {
@@ -1409,12 +1543,50 @@ public class MainActivity extends Activity {
 
         Button send = button(department.optString("sendLabel", "ارسال پیام"), true);
         send.setOnClickListener(v -> {
-            trackAction("message_send_sample", metadata("department", department.optString("id", "")));
-            input.setText("");
-            Toast.makeText(this, "پیام برای " + department.optString("title", "واحد پشتیبانی") + " ثبت شد", Toast.LENGTH_SHORT).show();
+            trackAction("message_send", metadata("department", department.optString("id", "")));
+            submitMessage(department, input);
         });
         card.addView(send, new LinearLayout.LayoutParams(-1, dp(44)));
         return card;
+    }
+
+    private void submitMessage(JSONObject department, EditText input) {
+        String message = input.getText().toString().trim();
+        if (message.isEmpty()) {
+            Toast.makeText(this, "پیام را بنویسید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String url = remoteUrl("messagesUrl", "/messages");
+        if (url.isEmpty()) {
+            input.setText("");
+            Toast.makeText(this, "پیام برای " + department.optString("title", "واحد پشتیبانی") + " ثبت شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("department", department.optString("id", ""));
+            payload.put("label", "مشتری اپ");
+            payload.put("text", message);
+
+            new Thread(() -> {
+                try {
+                    postJson(url, payload.toString());
+                    runOnUiThread(() -> {
+                        input.setText("");
+                        Toast.makeText(this, "پیام ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshMobileState();
+                    });
+                } catch (Exception e) {
+                    trackError("message_send", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در ارسال پیام", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("message_payload", e);
+            Toast.makeText(this, "خطا در ارسال پیام", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private View productList(JSONObject section) throws Exception {
@@ -1883,23 +2055,103 @@ public class MainActivity extends Activity {
         addSpace(card, 12);
         Button action = button("افزودن / رزرو", false);
         action.setOnClickListener(v -> {
-            trackAction("add_to_cart_sample", metadata("product", item.optString("id", item.optString("title", ""))));
-            cartCount++;
-            updateCartButton();
-            Toast.makeText(this, "به سبد نمونه اضافه شد", Toast.LENGTH_SHORT).show();
+            trackAction("add_to_cart", metadata("product", item.optString("id", item.optString("title", ""))));
+            addProductToCart(item);
         });
         card.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
         return card;
     }
 
+    private void addProductToCart(JSONObject item) {
+        String productId = item.optString("id", "").trim();
+        String url = remoteUrl("cartItemsUrl", "/cart/items");
+
+        if (url.isEmpty() || productId.isEmpty()) {
+            cacheCartItem(item, 1);
+            cartCount++;
+            updateCartButton();
+            Toast.makeText(this, "به سبد اضافه شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("device_id", telemetryDeviceId);
+            payload.put("product", productId);
+            payload.put("quantity", 1);
+
+            new Thread(() -> {
+                try {
+                    JSONObject response = new JSONObject(postJson(url, payload.toString()));
+                    JSONObject data = response.optJSONObject("data");
+                    int nextCount = data == null ? cartCount + 1 : data.optInt("count", cartCount + 1);
+                    runOnUiThread(() -> {
+                        cacheCartItem(item, 1);
+                        cartCount = nextCount;
+                        updateCartButton();
+                        Toast.makeText(this, "به سبد اضافه شد", Toast.LENGTH_SHORT).show();
+                    });
+                } catch (Exception e) {
+                    trackError("add_to_cart", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در افزودن به سبد", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("add_to_cart_payload", e);
+            Toast.makeText(this, "خطا در افزودن به سبد", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void cacheCartItem(JSONObject item, int quantity) {
+        String id = item.optString("id", item.optString("title", ""));
+        if (id.isEmpty()) return;
+
+        try {
+            JSONObject cached = cartItems.containsKey(id) ? cartItems.get(id) : new JSONObject(item.toString());
+            cached.put("quantity", cached.optInt("quantity", 0) + quantity);
+            cartItems.put(id, cached);
+        } catch (Exception ignored) {
+        }
+    }
+
     private View thumbnail(JSONObject item, int height) {
-        TextView view = text(item.optString("thumbnailText", "ETOK"), 18, WHITE, true);
-        view.setGravity(Gravity.CENTER);
-        view.setSingleLine(true);
-        view.setEllipsize(TextUtils.TruncateAt.END);
-        view.setBackground(rounded(item.optString("thumbnailColor", "#101114"), 8, 0, 0));
-        view.setMinHeight(height);
-        return view;
+        String imageUrl = item.optString("imageUrl", "").trim();
+        TextView fallback = text(item.optString("thumbnailText", "ETOK"), 18, WHITE, true);
+        fallback.setGravity(Gravity.CENTER);
+        fallback.setSingleLine(true);
+        fallback.setEllipsize(TextUtils.TruncateAt.END);
+        fallback.setBackground(rounded(item.optString("thumbnailColor", "#101114"), 8, 0, 0));
+        fallback.setMinHeight(height);
+
+        if (imageUrl.isEmpty()) {
+            return fallback;
+        }
+
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackground(rounded(item.optString("thumbnailColor", "#101114"), 8, 0, 0));
+        frame.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
+
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setVisibility(View.INVISIBLE);
+        frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        loadRemoteImage(image, imageUrl);
+        return frame;
+    }
+
+    private void loadRemoteImage(ImageView image, String urlValue) {
+        new Thread(() -> {
+            try {
+                Bitmap bitmap = downloadBitmap(urlValue);
+                if (bitmap == null) return;
+                runOnUiThread(() -> {
+                    image.setImageBitmap(bitmap);
+                    image.setVisibility(View.VISIBLE);
+                });
+            } catch (Exception e) {
+                trackError("image_load", e);
+            }
+        }).start();
     }
 
     private View infoPanel(JSONObject section) throws Exception {
@@ -1999,6 +2251,114 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void updateMessageButton() {
+        if (messagesButton != null) {
+            messagesButton.setText(persianDigits(unreadMessageCount));
+        }
+    }
+
+    private void refreshMobileState() {
+        String url = remoteUrl("stateUrl", "/mobile/state");
+        if (url.isEmpty() || telemetryDeviceId == null || telemetryDeviceId.trim().isEmpty()) {
+            return;
+        }
+
+        String separator = url.contains("?") ? "&" : "?";
+        String requestUrl = url + separator + "device_id=" + urlEncode(telemetryDeviceId);
+
+        new Thread(() -> {
+            try {
+                JSONObject response = new JSONObject(downloadText(requestUrl));
+                JSONObject data = response.optJSONObject("data");
+                if (data == null) return;
+
+                int nextCartCount = data.optInt("cart_count", cartCount);
+                int nextUnreadCount = data.optInt("unread_message_count", unreadMessageCount);
+                Map<String, JSONObject> nextCartItems = fetchCartItems();
+                runOnUiThread(() -> {
+                    cartCount = nextCartCount;
+                    unreadMessageCount = nextUnreadCount;
+                    if (nextCartItems != null) {
+                        cartItems.clear();
+                        cartItems.putAll(nextCartItems);
+                    }
+                    updateCartButton();
+                    updateMessageButton();
+                });
+            } catch (Exception e) {
+                trackError("mobile_state", e);
+            }
+        }).start();
+    }
+
+    private Map<String, JSONObject> fetchCartItems() {
+        String url = remoteUrl("cartUrl", "/cart");
+        if (url.isEmpty()) {
+            return null;
+        }
+
+        try {
+            String separator = url.contains("?") ? "&" : "?";
+            JSONObject response = new JSONObject(downloadText(url + separator + "device_id=" + urlEncode(telemetryDeviceId)));
+            JSONObject data = response.optJSONObject("data");
+            if (data == null) return null;
+
+            JSONArray items = data.optJSONArray("items");
+            if (items == null) return null;
+
+            Map<String, JSONObject> result = new HashMap<>();
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject cartItem = items.getJSONObject(i);
+                JSONObject product = cartItem.optJSONObject("product");
+                if (product == null) continue;
+                product.put("quantity", cartItem.optInt("quantity", 1));
+                String id = product.optString("id", "");
+                if (!id.isEmpty()) {
+                    result.put(id, product);
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            trackError("cart_fetch", e);
+            return null;
+        }
+    }
+
+    private String remoteUrl(String key, String fallbackPath) {
+        if (config == null || config.optJSONObject("remoteConfig") == null) {
+            return "";
+        }
+
+        JSONObject remoteConfig = config.optJSONObject("remoteConfig");
+        String configured = remoteConfig.optString(key, "").trim();
+        if (!configured.isEmpty()) {
+            return configured;
+        }
+
+        String manifestUrl = remoteConfig.optString("manifestUrl", "").trim();
+        if (manifestUrl.endsWith("/mobile/manifest")) {
+            return manifestUrl.substring(0, manifestUrl.length() - "/mobile/manifest".length()) + fallbackPath;
+        }
+
+        if (manifestUrl.endsWith("/manifest")) {
+            return manifestUrl.substring(0, manifestUrl.length() - "/manifest".length()) + fallbackPath;
+        }
+
+        return "";
+    }
+
+    private String urlEncode(String value) {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        } catch (Exception ignored) {
+            return value;
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
     private String persianDigits(int value) {
         char[] digits = String.valueOf(value).toCharArray();
         StringBuilder builder = new StringBuilder();
@@ -2032,6 +2392,25 @@ public class MainActivity extends Activity {
 
         try {
             return readStream(connection.getInputStream());
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private Bitmap downloadBitmap(String urlValue) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlValue).openConnection();
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(5000);
+        connection.setRequestMethod("GET");
+
+        int code = connection.getResponseCode();
+        if (code < 200 || code >= 300) {
+            connection.disconnect();
+            throw new IllegalStateException("HTTP " + code);
+        }
+
+        try {
+            return BitmapFactory.decodeStream(connection.getInputStream());
         } finally {
             connection.disconnect();
         }
