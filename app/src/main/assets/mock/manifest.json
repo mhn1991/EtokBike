@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "appId": "etokbike",
-  "appVersion": 10,
+  "appVersion": 13,
   "remoteConfig": {
     "manifestUrl": "http://10.0.2.2:8001/api/mobile/manifest"
   },
@@ -25,10 +25,10 @@
     { "id": "account", "label": "حساب", "screenId": "account" }
   ],
   "screens": {
-    "home": { "version": 5, "asset": "mock/screens/home.json", "url": "", "checksum": "" },
-    "shop": { "version": 3, "asset": "mock/screens/shop.json", "url": "", "checksum": "" },
-    "services": { "version": 5, "asset": "mock/screens/services.json", "url": "", "checksum": "" },
-    "events": { "version": 4, "asset": "mock/screens/events.json", "url": "", "checksum": "" },
+    "home": { "version": 8, "asset": "mock/screens/home.json", "url": "", "checksum": "" },
+    "shop": { "version": 6, "asset": "mock/screens/shop.json", "url": "", "checksum": "" },
+    "services": { "version": 8, "asset": "mock/screens/services.json", "url": "", "checksum": "" },
+    "events": { "version": 7, "asset": "mock/screens/events.json", "url": "", "checksum": "" },
     "account": { "version": 4, "asset": "mock/screens/account.json", "url": "", "checksum": "" },
     "messages": { "version": 2, "asset": "mock/screens/messages.json", "url": "", "checksum": "" },
     "cart": { "version": 3, "asset": "mock/screens/cart.json", "url": "", "checksum": "" }
