@@ -3,6 +3,7 @@ package com.etokbike.app;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -22,6 +23,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -61,6 +63,7 @@ import java.util.UUID;
 
 public class MainActivity extends Activity {
     private static final String BUNDLED_MANIFEST_PATH = "mock/manifest.json";
+    private static final String CUSTOMER_PREFS = "etokbike_customer";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
     private static final long TELEMETRY_HEARTBEAT_MS = 60000L;
     private static final long INTRO_MIN_DURATION_MS = 1650L;
@@ -113,11 +116,19 @@ public class MainActivity extends Activity {
     private long lastCartRefreshAt = 0L;
     private String telemetryDeviceId;
     private String telemetrySessionId;
+    private SharedPreferences customerPreferences;
+    private String authToken = "";
+    private String customerName = "";
+    private String customerPhone = "";
+    private String customerEmail = "";
+    private String customerAddress = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         initializeTelemetry();
+        customerPreferences = getSharedPreferences(CUSTOMER_PREFS, MODE_PRIVATE);
+        loadCustomerProfile();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setStatusBarColor(TOP_BAR_SURFACE);
         getWindow().setNavigationBarColor(WHITE);
@@ -170,6 +181,9 @@ public class MainActivity extends Activity {
                 trackEvent("app_open", currentScreen, null, deviceTelemetryMetadata());
                 trackEvent("screen_view", currentScreen, null, null);
                 refreshMobileState();
+                if (isLoggedIn()) {
+                    refreshCustomerScreens();
+                }
                 checkForConfigUpdate();
             }, remaining);
         }).start();
@@ -192,6 +206,58 @@ public class MainActivity extends Activity {
                 ? UUID.randomUUID().toString()
                 : androidId;
         telemetrySessionId = UUID.randomUUID().toString();
+    }
+
+    private void loadCustomerProfile() {
+        if (customerPreferences == null) return;
+
+        authToken = customerPreferences.getString("auth_token", "");
+        customerName = customerPreferences.getString("name", "");
+        customerPhone = customerPreferences.getString("phone", "");
+        customerEmail = customerPreferences.getString("email", "");
+        customerAddress = customerPreferences.getString("address", "");
+    }
+
+    private void saveCustomerProfile() {
+        if (customerPreferences == null) return;
+
+        customerPreferences.edit()
+                .putString("auth_token", authToken == null ? "" : authToken)
+                .putString("name", customerName == null ? "" : customerName)
+                .putString("phone", customerPhone == null ? "" : customerPhone)
+                .putString("email", customerEmail == null ? "" : customerEmail)
+                .putString("address", customerAddress == null ? "" : customerAddress)
+                .apply();
+    }
+
+    private boolean isLoggedIn() {
+        return authToken != null && !authToken.trim().isEmpty();
+    }
+
+    private String customerNameOrFallback() {
+        String value = customerName == null ? "" : customerName.trim();
+        return value.isEmpty() ? "Mobile Customer" : value;
+    }
+
+    private boolean hasCustomerIdentity() {
+        return !customerNameOrFallback().equals("Mobile Customer")
+                && customerPhone != null
+                && !customerPhone.trim().isEmpty();
+    }
+
+    private void applyUserPayload(JSONObject user) {
+        if (user == null) return;
+
+        customerName = user.optString("name", customerName);
+        customerEmail = user.optString("email", customerEmail);
+        JSONObject profile = user.optJSONObject("profile");
+        if (profile != null) {
+            customerName = profile.optString("name", customerName);
+            customerPhone = profile.optString("phone", customerPhone);
+            customerEmail = profile.optString("email", customerEmail);
+            customerAddress = profile.optString("delivery_address", customerAddress);
+        }
+        saveCustomerProfile();
     }
 
     private void trackAction(String action) {
@@ -608,6 +674,11 @@ public class MainActivity extends Activity {
                 addSpace(content, 14);
             }
 
+            if ("account".equals(screenId)) {
+                content.addView(accountAccessPanel(), new LinearLayout.LayoutParams(-1, -2));
+                addSpace(content, 14);
+            }
+
             JSONArray sections = screen.getJSONArray("sections");
             for (int i = 0; i < sections.length(); i++) {
                 renderSection(sections.getJSONObject(i));
@@ -620,6 +691,277 @@ public class MainActivity extends Activity {
             trackError("render_screen", e);
             Toast.makeText(this, "خطا در نمایش صفحه", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private View accountAccessPanel() {
+        LinearLayout card = panel(WHITE);
+        card.addView(text(isLoggedIn() ? "حساب متصل" : "ورود یا ثبت نام", 18, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 6);
+        card.addView(text(isLoggedIn()
+                ? "اطلاعات این حساب برای سفارش، رزرو سرویس، پیام‌ها و پیگیری‌ها استفاده می‌شود."
+                : "با ورود، سبد خرید، پیام‌ها و وضعیت‌ها به حساب شما متصل می‌شوند.", 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 12);
+
+        EditText name = addTextField(card, "نام", customerName, false, 1);
+        addSpace(card, 8);
+        EditText phone = addTextField(card, "شماره تماس", customerPhone, false, 1);
+        addSpace(card, 8);
+        EditText email = addTextField(card, "ایمیل", customerEmail, false, 1);
+        addSpace(card, 8);
+        EditText address = addTextField(card, "آدرس تحویل", customerAddress, false, 2);
+        addSpace(card, 8);
+        EditText password = addTextField(card, "رمز عبور", "", true, 1);
+        addSpace(card, 12);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+
+        Button saveLocal = button("ذخیره اطلاعات", false);
+        saveLocal.setOnClickListener(v -> {
+            saveCustomerInputs(name, phone, email, address);
+            Toast.makeText(this, "اطلاعات ذخیره شد", Toast.LENGTH_SHORT).show();
+        });
+        actions.addView(saveLocal, new LinearLayout.LayoutParams(-1, dp(44)));
+        addSpace(actions, 8);
+
+        if (isLoggedIn()) {
+            Button update = button("به‌روزرسانی حساب", true);
+            update.setOnClickListener(v -> updateAccountProfile(name, phone, email, address));
+            actions.addView(update, new LinearLayout.LayoutParams(-1, dp(44)));
+            addSpace(actions, 8);
+
+            Button logout = button("خروج از حساب", false);
+            logout.setTextColor(RED);
+            logout.setOnClickListener(v -> {
+                authToken = "";
+                saveCustomerProfile();
+                cartItems.clear();
+                cartCount = 0;
+                unreadMessageCount = 0;
+                updateCartButton();
+                updateMessageButton();
+                Toast.makeText(this, "از حساب خارج شدید", Toast.LENGTH_SHORT).show();
+                renderScreen("account", false);
+            });
+            actions.addView(logout, new LinearLayout.LayoutParams(-1, dp(44)));
+        } else {
+            Button login = button("ورود", true);
+            login.setOnClickListener(v -> loginAccount(email.getText().toString().trim(), password.getText().toString()));
+            actions.addView(login, new LinearLayout.LayoutParams(-1, dp(44)));
+            addSpace(actions, 8);
+
+            Button register = button("ثبت نام", false);
+            register.setOnClickListener(v -> registerAccount(name, phone, email, address, password));
+            actions.addView(register, new LinearLayout.LayoutParams(-1, dp(44)));
+        }
+
+        card.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+        return card;
+    }
+
+    private EditText addTextField(LinearLayout parent, String label, String value, boolean password, int minLines) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.RIGHT);
+        box.addView(text(label, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(box, 4);
+
+        EditText input = new EditText(this);
+        input.setText(value == null ? "" : value);
+        input.setTextSize(14);
+        input.setTextColor(BLACK);
+        input.setGravity(Gravity.RIGHT);
+        input.setSingleLine(minLines <= 1);
+        input.setMinLines(minLines);
+        input.setBackground(rounded(SURFACE, 8, BORDER, 1));
+        input.setPadding(dp(12), dp(8), dp(12), dp(8));
+        input.setInputType(password ? (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD) : InputType.TYPE_CLASS_TEXT);
+        box.addView(input, new LinearLayout.LayoutParams(-1, minLines > 1 ? dp(84) : dp(48)));
+        parent.addView(box, new LinearLayout.LayoutParams(-1, -2));
+        return input;
+    }
+
+    private Spinner addChoiceField(LinearLayout parent, String label, String[] options) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.RIGHT);
+        box.addView(text(label, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(box, 4);
+
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        box.addView(spinner, new LinearLayout.LayoutParams(-1, dp(48)));
+        parent.addView(box, new LinearLayout.LayoutParams(-1, -2));
+        return spinner;
+    }
+
+    private String paymentMethodValue(int position) {
+        if (position == 1) return "cash_on_delivery";
+        if (position == 2) return "bank_transfer";
+        return "pay_in_store";
+    }
+
+    private void saveCustomerInputs(EditText name, EditText phone, EditText email, EditText address) {
+        customerName = name.getText().toString().trim();
+        customerPhone = phone.getText().toString().trim();
+        customerEmail = email.getText().toString().trim();
+        customerAddress = address.getText().toString().trim();
+        saveCustomerProfile();
+    }
+
+    private void loginAccount(String email, String password) {
+        if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "ایمیل و رمز عبور را وارد کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String url = remoteUrl("loginUrl", "/auth/login");
+        if (url.isEmpty()) {
+            Toast.makeText(this, "آدرس ورود تنظیم نشده است", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("email", email);
+            payload.put("password", password);
+            payload.put("device_name", "android");
+            submitAuthRequest(url, payload, "ورود انجام شد");
+        } catch (Exception e) {
+            trackError("login_payload", e);
+            Toast.makeText(this, "خطا در ورود", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void registerAccount(EditText name, EditText phone, EditText email, EditText address, EditText password) {
+        String nameValue = name.getText().toString().trim();
+        String emailValue = email.getText().toString().trim();
+        String passwordValue = password.getText().toString();
+
+        if (nameValue.isEmpty() || emailValue.isEmpty() || passwordValue.length() < 8) {
+            Toast.makeText(this, "نام، ایمیل و رمز حداقل ۸ کاراکتری لازم است", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String url = remoteUrl("registerUrl", "/auth/register");
+        if (url.isEmpty()) {
+            Toast.makeText(this, "آدرس ثبت نام تنظیم نشده است", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("name", nameValue);
+            payload.put("email", emailValue);
+            payload.put("password", passwordValue);
+            payload.put("phone", phone.getText().toString().trim());
+            payload.put("delivery_address", address.getText().toString().trim());
+            payload.put("device_name", "android");
+            submitAuthRequest(url, payload, "ثبت نام انجام شد");
+        } catch (Exception e) {
+            trackError("register_payload", e);
+            Toast.makeText(this, "خطا در ثبت نام", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void submitAuthRequest(String url, JSONObject payload, String successMessage) {
+        new Thread(() -> {
+            try {
+                String responseText = postJson(url, payload.toString());
+                JSONObject data = new JSONObject(responseText).optJSONObject("data");
+                if (data == null) throw new IllegalStateException("Missing auth data");
+
+                authToken = data.optString("token", authToken);
+                applyUserPayload(data.optJSONObject("user"));
+                runOnUiThread(() -> {
+                    Toast.makeText(this, successMessage, Toast.LENGTH_SHORT).show();
+                    refreshCustomerScreens();
+                    refreshMobileState();
+                    renderScreen("account", false);
+                });
+            } catch (Exception e) {
+                trackError("auth_request", e);
+                runOnUiThread(() -> Toast.makeText(this, "خطا در عملیات حساب", Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private void updateAccountProfile(EditText name, EditText phone, EditText email, EditText address) {
+        saveCustomerInputs(name, phone, email, address);
+
+        String url = remoteUrl("accountUpdateUrl", "/account");
+        if (url.isEmpty() || !isLoggedIn()) {
+            Toast.makeText(this, "اطلاعات محلی ذخیره شد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("name", customerNameOrFallback());
+            payload.put("phone", customerPhone);
+            payload.put("email", customerEmail);
+            payload.put("delivery_address", customerAddress);
+
+            new Thread(() -> {
+                try {
+                    JSONObject response = new JSONObject(patchJson(url, payload.toString()));
+                    JSONObject data = response.optJSONObject("data");
+                    if (data != null && data.optJSONObject("profile") != null) {
+                        JSONObject user = new JSONObject();
+                        user.put("name", customerName);
+                        user.put("email", customerEmail);
+                        user.put("profile", data.optJSONObject("profile"));
+                        applyUserPayload(user);
+                    }
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "حساب به‌روزرسانی شد", Toast.LENGTH_SHORT).show();
+                        refreshCustomerScreens();
+                    });
+                } catch (Exception e) {
+                    trackError("account_update", e);
+                    runOnUiThread(() -> Toast.makeText(this, "خطا در به‌روزرسانی حساب", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } catch (Exception e) {
+            trackError("account_update_payload", e);
+            Toast.makeText(this, "خطا در به‌روزرسانی حساب", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void refreshCustomerScreens() {
+        reloadRemoteScreen("account");
+        reloadRemoteScreen("messages");
+        reloadRemoteScreen("home");
+        reloadRemoteScreen("services");
+    }
+
+    private void reloadRemoteScreen(String screenId) {
+        if (config == null || config.optJSONObject("screens") == null) return;
+
+        JSONObject screenMeta = config.optJSONObject("screens").optJSONObject(screenId);
+        if (screenMeta == null) return;
+
+        String url = screenMeta.optString("url", "").trim();
+        if (url.isEmpty()) return;
+
+        new Thread(() -> {
+            try {
+                String rawJson = downloadText(url);
+                JSONObject screen = new JSONObject(rawJson);
+                validateScreen(screen, screenId);
+                configDatabase.saveScreen(screenId, screen, screen.optInt("version", screenMeta.optInt("version", 0)));
+                runOnUiThread(() -> {
+                    screens.put(screenId, screen);
+                    if (screenId.equals(currentScreen)) {
+                        renderScreen(screenId, false);
+                    }
+                });
+            } catch (Exception e) {
+                trackError("reload_screen_" + screenId, e);
+            }
+        }).start();
     }
 
     private void renderProgramDetailScreen() {
@@ -1098,6 +1440,12 @@ public class MainActivity extends Activity {
     }
 
     private void submitProgramBooking(JSONObject item) {
+        if (!hasCustomerIdentity()) {
+            Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
+            openScreen("account");
+            return;
+        }
+
         String url = remoteUrl("programBookingsUrl", "/program-bookings");
         if (url.isEmpty()) {
             Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show();
@@ -1107,13 +1455,18 @@ public class MainActivity extends Activity {
         try {
             JSONObject payload = new JSONObject();
             payload.put("program", item.optString("id", ""));
-            payload.put("customer_name", "Mobile Customer");
+            payload.put("customer_name", customerNameOrFallback());
+            payload.put("customer_phone", customerPhone);
+            payload.put("customer_email", customerEmail);
             payload.put("attendees", 1);
 
             new Thread(() -> {
                 try {
                     postJson(url, payload.toString());
-                    runOnUiThread(() -> Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "درخواست رزرو برنامه ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshCustomerScreens();
+                    });
                 } catch (Exception e) {
                     trackError("program_book", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در رزرو برنامه", Toast.LENGTH_SHORT).show());
@@ -1305,6 +1658,24 @@ public class MainActivity extends Activity {
             wrap.addView(card, params);
         }
 
+        LinearLayout customer = panel(WHITE);
+        customer.addView(text("اطلاعات تحویل", 18, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(customer, 8);
+        EditText name = addTextField(customer, "نام", customerName, false, 1);
+        addSpace(customer, 8);
+        EditText phone = addTextField(customer, "شماره تماس", customerPhone, false, 1);
+        addSpace(customer, 8);
+        EditText email = addTextField(customer, "ایمیل", customerEmail, false, 1);
+        addSpace(customer, 8);
+        EditText address = addTextField(customer, "آدرس تحویل", customerAddress, false, 2);
+        addSpace(customer, 8);
+        Spinner fulfillment = addChoiceField(customer, "روش دریافت", new String[]{"تحویل حضوری", "ارسال"});
+        addSpace(customer, 8);
+        Spinner payment = addChoiceField(customer, "روش پرداخت", new String[]{"پرداخت در فروشگاه", "پرداخت هنگام تحویل", "هماهنگی کارت‌به‌کارت"});
+        LinearLayout.LayoutParams customerParams = new LinearLayout.LayoutParams(-1, -2);
+        customerParams.setMargins(dp(0), dp(5), dp(0), dp(7));
+        wrap.addView(customer, customerParams);
+
         LinearLayout total = panel(SURFACE);
         LinearLayout totalRow = new LinearLayout(this);
         totalRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1318,7 +1689,8 @@ public class MainActivity extends Activity {
         Button checkout = button(data.optString("checkoutLabel", "ثبت سفارش"), true);
         checkout.setOnClickListener(v -> {
             trackAction("checkout");
-            submitOrder();
+            saveCustomerInputs(name, phone, email, address);
+            submitOrder(fulfillment.getSelectedItemPosition() == 1 ? "delivery" : "pickup", paymentMethodValue(payment.getSelectedItemPosition()));
         });
         total.addView(checkout, new LinearLayout.LayoutParams(-1, dp(46)));
         wrap.addView(total, new LinearLayout.LayoutParams(-1, -2));
@@ -1444,9 +1816,19 @@ public class MainActivity extends Activity {
         return base.endsWith("/") ? base + cartItemId : base + "/" + cartItemId;
     }
 
-    private void submitOrder() {
+    private void submitOrder(String fulfillmentMethod, String paymentMethod) {
         if (cartItems.isEmpty()) {
             Toast.makeText(this, "ابتدا محصولی به سبد اضافه کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!hasCustomerIdentity()) {
+            Toast.makeText(this, "نام و شماره تماس را وارد کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if ("delivery".equals(fulfillmentMethod) && (customerAddress == null || customerAddress.trim().isEmpty())) {
+            Toast.makeText(this, "برای ارسال، آدرس تحویل را وارد کنید", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1461,8 +1843,12 @@ public class MainActivity extends Activity {
 
         try {
             JSONObject payload = new JSONObject();
-            payload.put("customer_name", "Mobile Customer");
-            payload.put("fulfillment_method", "pickup");
+            payload.put("customer_name", customerNameOrFallback());
+            payload.put("customer_phone", customerPhone);
+            payload.put("customer_email", customerEmail);
+            payload.put("delivery_address", customerAddress);
+            payload.put("fulfillment_method", fulfillmentMethod);
+            payload.put("payment_method", paymentMethod);
             payload.put("device_id", telemetryDeviceId);
             JSONArray items = new JSONArray();
             for (String key : cartItems.keySet()) {
@@ -1485,6 +1871,7 @@ public class MainActivity extends Activity {
                         cartCount = 0;
                         updateCartButton();
                         Toast.makeText(this, "سفارش ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshCustomerScreens();
                         refreshMobileState();
                     });
                 } catch (Exception e) {
@@ -1570,6 +1957,12 @@ public class MainActivity extends Activity {
     }
 
     private void submitServiceBooking(String service, String bike, String time, String problem, EditText problemInput) {
+        if (!hasCustomerIdentity()) {
+            Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
+            openScreen("account");
+            return;
+        }
+
         String url = remoteUrl("serviceBookingsUrl", "/service-bookings");
         if (url.isEmpty()) {
             Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
@@ -1578,7 +1971,9 @@ public class MainActivity extends Activity {
 
         try {
             JSONObject payload = new JSONObject();
-            payload.put("customer_name", "Mobile Customer");
+            payload.put("customer_name", customerNameOrFallback());
+            payload.put("customer_phone", customerPhone);
+            payload.put("customer_email", customerEmail);
             payload.put("service_type", service);
             payload.put("bike_label", bike);
             payload.put("preferred_time", time);
@@ -1590,6 +1985,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> {
                         problemInput.setText("");
                         Toast.makeText(this, "درخواست سرویس ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshCustomerScreens();
                         refreshMobileState();
                     });
                 } catch (Exception e) {
@@ -1735,6 +2131,12 @@ public class MainActivity extends Activity {
             return;
         }
 
+        if (!hasCustomerIdentity()) {
+            Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
+            openScreen("account");
+            return;
+        }
+
         String url = remoteUrl("messagesUrl", "/messages");
         if (url.isEmpty()) {
             input.setText("");
@@ -1745,7 +2147,10 @@ public class MainActivity extends Activity {
         try {
             JSONObject payload = new JSONObject();
             payload.put("department", department.optString("id", ""));
-            payload.put("label", "مشتری اپ");
+            payload.put("customer_name", customerNameOrFallback());
+            payload.put("customer_phone", customerPhone);
+            payload.put("customer_email", customerEmail);
+            payload.put("label", customerNameOrFallback());
             payload.put("text", message);
 
             new Thread(() -> {
@@ -1754,6 +2159,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> {
                         input.setText("");
                         Toast.makeText(this, "پیام ثبت شد", Toast.LENGTH_SHORT).show();
+                        refreshCustomerScreens();
                         refreshMobileState();
                     });
                 } catch (Exception e) {
@@ -2784,6 +3190,7 @@ public class MainActivity extends Activity {
         connection.setReadTimeout(5000);
         connection.setRequestMethod("GET");
         connection.setRequestProperty("Accept", "application/json");
+        addAuthHeader(connection);
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
@@ -2836,6 +3243,7 @@ public class MainActivity extends Activity {
         connection.setRequestMethod(method);
         connection.setRequestProperty("Accept", "application/json");
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        addAuthHeader(connection);
         connection.setDoOutput(true);
 
         OutputStream output = connection.getOutputStream();
@@ -2852,6 +3260,12 @@ public class MainActivity extends Activity {
             return readStream(connection.getInputStream());
         } finally {
             connection.disconnect();
+        }
+    }
+
+    private void addAuthHeader(HttpURLConnection connection) {
+        if (isLoggedIn()) {
+            connection.setRequestProperty("Authorization", "Bearer " + authToken.trim());
         }
     }
 
