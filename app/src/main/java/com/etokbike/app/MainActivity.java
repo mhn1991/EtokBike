@@ -64,6 +64,7 @@ import java.util.UUID;
 public class MainActivity extends Activity {
     private static final String BUNDLED_MANIFEST_PATH = "mock/manifest.json";
     private static final String CUSTOMER_PREFS = "etokbike_customer";
+    private static final String ACTIVE_MANIFEST_URL_PREF = "active_manifest_url";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
     private static final long TELEMETRY_HEARTBEAT_MS = 60000L;
     private static final long INTRO_MIN_DURATION_MS = 1650L;
@@ -122,12 +123,14 @@ public class MainActivity extends Activity {
     private String customerPhone = "";
     private String customerEmail = "";
     private String customerAddress = "";
+    private String activeManifestUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         initializeTelemetry();
         customerPreferences = getSharedPreferences(CUSTOMER_PREFS, MODE_PRIVATE);
+        activeManifestUrl = customerPreferences.getString(ACTIVE_MANIFEST_URL_PREF, "");
         loadCustomerProfile();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setStatusBarColor(TOP_BAR_SURFACE);
@@ -337,12 +340,12 @@ public class MainActivity extends Activity {
         }
 
         JSONObject remoteConfig = config.optJSONObject("remoteConfig");
-        String url = remoteConfig.optString("telemetryUrl", "").trim();
+        String url = withActiveManifestBase(remoteConfig.optString("telemetryUrl", "").trim());
         if (!url.isEmpty()) {
             return url;
         }
 
-        String manifestUrl = remoteConfig.optString("manifestUrl", "").trim();
+        String manifestUrl = withActiveManifestBase(remoteConfig.optString("manifestUrl", "").trim());
         if (manifestUrl.endsWith("/manifest")) {
             return manifestUrl.substring(0, manifestUrl.length() - "/manifest".length()) + "/telemetry";
         }
@@ -417,46 +420,193 @@ public class MainActivity extends Activity {
     }
 
     private void checkForConfigUpdate() {
-        String manifestUrl = config.optJSONObject("remoteConfig") == null
-                ? ""
-                : config.optJSONObject("remoteConfig").optString("manifestUrl", "");
-        if (manifestUrl.trim().isEmpty()) {
+        List<String> manifestUrls = manifestUrlCandidates();
+        if (manifestUrls.isEmpty()) {
             return;
         }
 
         new Thread(() -> {
-            try {
-                JSONObject manifest = new JSONObject(downloadText(manifestUrl));
-                validateManifest(manifest);
-                int remoteVersion = manifest.optInt("appVersion", 0);
-                int currentVersion = config.optInt("appVersion", 0);
-                if (remoteVersion <= currentVersion) {
-                    return;
-                }
-
-                downloadChangedScreens(manifest);
-                configDatabase.saveManifest(manifest, remoteVersion);
-                Map<String, JSONObject> updatedScreens = loadScreens(manifest);
-                runOnUiThread(() -> {
-                    try {
-                        applyManifest(manifest);
-                        screens.clear();
-                        screens.putAll(updatedScreens);
-                        if (!screens.containsKey(currentScreen)) {
-                            currentScreen = "home";
-                        }
-                        renderScreen(currentScreen);
-                        refreshMobileState();
-                        trackEvent("config_update", currentScreen, "manifest_updated", metadata("appVersion", String.valueOf(remoteVersion)));
-                    } catch (Exception e) {
-                        trackError("config_update_apply", e);
-                        Toast.makeText(MainActivity.this, "خطا در به‌روزرسانی تنظیمات", Toast.LENGTH_SHORT).show();
+            Exception lastError = null;
+            for (String manifestUrl : manifestUrls) {
+                try {
+                    JSONObject manifest = new JSONObject(downloadText(manifestUrl));
+                    validateManifest(manifest);
+                    rememberActiveManifestUrl(manifestUrl);
+                    int remoteVersion = manifest.optInt("appVersion", 0);
+                    int currentVersion = config.optInt("appVersion", 0);
+                    if (remoteVersion <= currentVersion) {
+                        return;
                     }
-                });
-            } catch (Exception e) {
-                trackError("config_update", e);
+
+                    downloadChangedScreens(manifest);
+                    configDatabase.saveManifest(manifest, remoteVersion);
+                    Map<String, JSONObject> updatedScreens = loadScreens(manifest);
+                    runOnUiThread(() -> {
+                        try {
+                            applyManifest(manifest);
+                            screens.clear();
+                            screens.putAll(updatedScreens);
+                            if (!screens.containsKey(currentScreen)) {
+                                currentScreen = "home";
+                            }
+                            renderScreen(currentScreen);
+                            refreshMobileState();
+                            trackEvent("config_update", currentScreen, "manifest_updated", metadata("appVersion", String.valueOf(remoteVersion)));
+                        } catch (Exception e) {
+                            trackError("config_update_apply", e);
+                            Toast.makeText(MainActivity.this, "خطا در به‌روزرسانی تنظیمات", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    return;
+                } catch (Exception e) {
+                    lastError = e;
+                }
+            }
+
+            if (lastError != null) {
+                trackError("config_update", lastError);
             }
         }).start();
+    }
+
+    private List<String> manifestUrlCandidates() {
+        List<String> urls = new ArrayList<>();
+        addUrlCandidate(urls, activeManifestUrl);
+
+        JSONObject remoteConfig = config == null ? null : config.optJSONObject("remoteConfig");
+        if (remoteConfig != null) {
+            addUrlCandidate(urls, remoteConfig.optString("manifestUrl", ""));
+
+            JSONArray manifestUrls = remoteConfig.optJSONArray("manifestUrls");
+            if (manifestUrls != null) {
+                for (int i = 0; i < manifestUrls.length(); i++) {
+                    addUrlCandidate(urls, manifestUrls.optString(i, ""));
+                }
+            }
+        }
+
+        List<String> seededUrls = new ArrayList<>(urls);
+        for (String url : seededUrls) {
+            addLocalUrlAlternates(urls, url);
+        }
+
+        return urls;
+    }
+
+    private void rememberActiveManifestUrl(String manifestUrl) {
+        activeManifestUrl = manifestUrl == null ? "" : manifestUrl.trim();
+        if (customerPreferences != null && !activeManifestUrl.isEmpty()) {
+            customerPreferences.edit()
+                    .putString(ACTIVE_MANIFEST_URL_PREF, activeManifestUrl)
+                    .apply();
+        }
+    }
+
+    private void addUrlCandidate(List<String> urls, String urlValue) {
+        String url = urlValue == null ? "" : urlValue.trim();
+        if (!url.isEmpty() && !urls.contains(url)) {
+            urls.add(url);
+        }
+    }
+
+    private void addLocalUrlAlternates(List<String> urls, String urlValue) {
+        try {
+            URL url = new URL(urlValue);
+            String host = url.getHost();
+            if ("10.0.2.2".equals(host)) {
+                addUrlCandidate(urls, replaceUrlHost(url, "127.0.0.1"));
+                addUrlCandidate(urls, replaceUrlHost(url, "localhost"));
+            } else if ("127.0.0.1".equals(host) || "localhost".equals(host)) {
+                addUrlCandidate(urls, replaceUrlHost(url, "10.0.2.2"));
+                addUrlCandidate(urls, replaceUrlHost(url, "127.0.0.1".equals(host) ? "localhost" : "127.0.0.1"));
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String replaceUrlHost(URL url, String host) throws Exception {
+        return new URL(url.getProtocol(), host, url.getPort(), url.getFile()).toString();
+    }
+
+    private String withActiveManifestBase(String urlValue) {
+        return withActiveManifestBase(urlValue, config);
+    }
+
+    private String withActiveManifestBase(String urlValue, JSONObject manifest) {
+        String url = urlValue == null ? "" : urlValue.trim();
+        if (url.isEmpty() || activeManifestUrl == null || activeManifestUrl.trim().isEmpty()) {
+            return url;
+        }
+
+        JSONObject remoteConfig = manifest == null ? null : manifest.optJSONObject("remoteConfig");
+        String configuredManifestUrl = remoteConfig == null
+                ? ""
+                : remoteConfig.optString("manifestUrl", "").trim();
+        String configuredBase = apiBaseFromManifestUrl(configuredManifestUrl);
+        String activeBase = apiBaseFromManifestUrl(activeManifestUrl);
+        if (!configuredBase.isEmpty() && !activeBase.isEmpty() && url.startsWith(configuredBase)) {
+            return activeBase + url.substring(configuredBase.length());
+        }
+
+        return url;
+    }
+
+    private String apiBaseFromManifestUrl(String manifestUrl) {
+        String url = manifestUrl == null ? "" : manifestUrl.trim();
+        if (url.endsWith("/mobile/manifest")) {
+            return url.substring(0, url.length() - "/mobile/manifest".length());
+        }
+        if (url.endsWith("/manifest")) {
+            return url.substring(0, url.length() - "/manifest".length());
+        }
+        return "";
+    }
+
+    private String downloadTextWithFallbacks(String urlValue) throws Exception {
+        Exception lastError = null;
+        List<String> urls = urlCandidates(urlValue);
+        for (String url : urls) {
+            try {
+                return downloadText(url);
+            } catch (Exception e) {
+                lastError = e;
+            }
+        }
+
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new IllegalStateException("Missing URL");
+    }
+
+    private Bitmap downloadBitmapWithFallbacks(String urlValue) throws Exception {
+        Exception lastError = null;
+        List<String> urls = urlCandidates(urlValue);
+        for (String url : urls) {
+            try {
+                return downloadBitmap(url);
+            } catch (Exception e) {
+                lastError = e;
+            }
+        }
+
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new IllegalStateException("Missing URL");
+    }
+
+    private List<String> urlCandidates(String urlValue) {
+        List<String> urls = new ArrayList<>();
+        addUrlCandidate(urls, withActiveManifestBase(urlValue));
+        addUrlCandidate(urls, urlValue);
+
+        List<String> seededUrls = new ArrayList<>(urls);
+        for (String url : seededUrls) {
+            addLocalUrlAlternates(urls, url);
+        }
+
+        return urls;
     }
 
     private void downloadChangedScreens(JSONObject manifest) throws Exception {
@@ -473,12 +623,12 @@ public class MainActivity extends Activity {
                 continue;
             }
 
-            String url = screenMeta.optString("url", "");
+            String url = withActiveManifestBase(screenMeta.optString("url", ""), manifest);
             if (url.trim().isEmpty()) {
                 continue;
             }
 
-            String screenJson = downloadText(url);
+            String screenJson = downloadTextWithFallbacks(url);
             String checksum = screenMeta.optString("checksum", "");
             if (!checksum.isEmpty() && !checksum.equalsIgnoreCase(sha256(screenJson))) {
                 continue;
@@ -948,7 +1098,7 @@ public class MainActivity extends Activity {
 
         new Thread(() -> {
             try {
-                String rawJson = downloadText(url);
+                String rawJson = downloadTextWithFallbacks(url);
                 JSONObject screen = new JSONObject(rawJson);
                 validateScreen(screen, screenId);
                 configDatabase.saveScreen(screenId, screen, screen.optInt("version", screenMeta.optInt("version", 0)));
@@ -2896,7 +3046,7 @@ public class MainActivity extends Activity {
     private void loadRemoteImage(ImageView image, String urlValue) {
         new Thread(() -> {
             try {
-                Bitmap bitmap = downloadBitmap(urlValue);
+                Bitmap bitmap = downloadBitmapWithFallbacks(urlValue);
                 if (bitmap == null) return;
                 runOnUiThread(() -> {
                     image.setImageBitmap(bitmap);
@@ -3046,7 +3196,7 @@ public class MainActivity extends Activity {
 
         new Thread(() -> {
             try {
-                JSONObject response = new JSONObject(downloadText(requestUrl));
+                JSONObject response = new JSONObject(downloadTextWithFallbacks(requestUrl));
                 JSONObject data = response.optJSONObject("data");
                 if (data == null) return;
 
@@ -3116,7 +3266,7 @@ public class MainActivity extends Activity {
 
         try {
             String separator = url.contains("?") ? "&" : "?";
-            JSONObject response = new JSONObject(downloadText(url + separator + "device_id=" + urlEncode(telemetryDeviceId)));
+            JSONObject response = new JSONObject(downloadTextWithFallbacks(url + separator + "device_id=" + urlEncode(telemetryDeviceId)));
             JSONObject data = response.optJSONObject("data");
             if (data == null) return null;
 
@@ -3133,12 +3283,12 @@ public class MainActivity extends Activity {
         }
 
         JSONObject remoteConfig = config.optJSONObject("remoteConfig");
-        String configured = remoteConfig.optString(key, "").trim();
+        String configured = withActiveManifestBase(remoteConfig.optString(key, "").trim());
         if (!configured.isEmpty()) {
             return configured;
         }
 
-        String manifestUrl = remoteConfig.optString("manifestUrl", "").trim();
+        String manifestUrl = withActiveManifestBase(remoteConfig.optString("manifestUrl", "").trim());
         if (manifestUrl.endsWith("/mobile/manifest")) {
             return manifestUrl.substring(0, manifestUrl.length() - "/mobile/manifest".length()) + fallbackPath;
         }

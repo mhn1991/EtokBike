@@ -1,9 +1,16 @@
 {
   "schemaVersion": 1,
   "appId": "etokbike",
-  "appVersion": 13,
+  "appVersion": 15,
   "remoteConfig": {
-    "manifestUrl": "http://10.0.2.2:8001/api/mobile/manifest"
+    "manifestUrl": "http://10.0.2.2:8001/api/mobile/manifest",
+    "manifestUrls": [
+      "http://10.0.2.2:8001/api/mobile/manifest",
+      "http://127.0.0.1:8001/api/mobile/manifest",
+      "http://localhost:8001/api/mobile/manifest",
+      "https://etokbike.ir/App/index.php/api/mobile/manifest",
+      "https://etokbike.ir/api/mobile/manifest"
+    ]
   },
   "theme": {
     "brandName": "EtokBike",
