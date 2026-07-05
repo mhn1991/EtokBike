@@ -1,5 +1,6 @@
 package com.etokbike.app;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Context;
@@ -22,7 +23,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -54,12 +54,14 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -67,6 +69,7 @@ public class MainActivity extends Activity {
     private static final String BUNDLED_MANIFEST_PATH = "mock/manifest.json";
     private static final String CUSTOMER_PREFS = "etokbike_customer";
     private static final String ACTIVE_MANIFEST_URL_PREF = "active_manifest_url";
+    private static final String TELEMETRY_DEVICE_ID_PREF = "telemetry_device_id";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
     private static final long TELEMETRY_HEARTBEAT_MS = 60000L;
     private static final long INTRO_MIN_DURATION_MS = 1650L;
@@ -80,8 +83,6 @@ public class MainActivity extends Activity {
     private static final int FEATURED_CARD_MEDIA_HEIGHT_DP = 188;
     private static final int DETAIL_MEDIA_HEIGHT_DP = 260;
     private static final int GALLERY_TILE_HEIGHT_DP = 150;
-    private static final int GALLERY_PREVIEW_WIDTH_DP = 180;
-    private static final int GALLERY_PREVIEW_HEIGHT_DP = 172;
     private static final int THUMBNAIL_MEDIA_SIZE_DP = 88;
 
     private static final int RED = Color.rgb(215, 25, 32);
@@ -105,7 +106,6 @@ public class MainActivity extends Activity {
     private final Map<String, Integer> visibleItemCounts = new HashMap<>();
     private final Map<String, String> selectedCategories = new HashMap<>();
     private final Map<String, String> selectedOfferSections = new HashMap<>();
-    private final Map<String, String> selectedPrograms = new HashMap<>();
     private final Map<String, String> selectedMessageDepartments = new HashMap<>();
     private final Map<String, String> searchQueries = new HashMap<>();
     private final Map<String, String> selectedFilters = new HashMap<>();
@@ -149,8 +149,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initializeTelemetry();
         customerPreferences = getSharedPreferences(CUSTOMER_PREFS, MODE_PRIVATE);
+        initializeTelemetry();
         activeManifestUrl = customerPreferences.getString(ACTIVE_MANIFEST_URL_PREF, "");
         loadCustomerProfile();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -225,10 +225,19 @@ public class MainActivity extends Activity {
     }
 
     private void initializeTelemetry() {
-        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        telemetryDeviceId = androidId == null || androidId.trim().isEmpty()
-                ? UUID.randomUUID().toString()
-                : androidId;
+        if (customerPreferences == null) {
+            customerPreferences = getSharedPreferences(CUSTOMER_PREFS, MODE_PRIVATE);
+        }
+
+        String storedDeviceId = customerPreferences.getString(TELEMETRY_DEVICE_ID_PREF, "");
+        if (storedDeviceId.trim().isEmpty()) {
+            storedDeviceId = UUID.randomUUID().toString();
+            customerPreferences.edit()
+                    .putString(TELEMETRY_DEVICE_ID_PREF, storedDeviceId)
+                    .apply();
+        }
+
+        telemetryDeviceId = storedDeviceId;
         telemetrySessionId = UUID.randomUUID().toString();
     }
 
@@ -263,10 +272,10 @@ public class MainActivity extends Activity {
         return value.isEmpty() ? "Mobile Customer" : value;
     }
 
-    private boolean hasCustomerIdentity() {
-        return !customerNameOrFallback().equals("Mobile Customer")
-                && customerPhone != null
-                && !customerPhone.trim().isEmpty();
+    private boolean isMissingCustomerIdentity() {
+        return "Mobile Customer".equals(customerNameOrFallback())
+                || customerPhone == null
+                || customerPhone.trim().isEmpty();
     }
 
     private void applyUserPayload(JSONObject user) {
@@ -355,12 +364,16 @@ public class MainActivity extends Activity {
         return metadata;
     }
 
+    private JSONObject remoteConfig() {
+        return config == null ? null : config.optJSONObject("remoteConfig");
+    }
+
     private String telemetryUrl() {
-        if (config == null || config.optJSONObject("remoteConfig") == null) {
+        JSONObject remoteConfig = remoteConfig();
+        if (remoteConfig == null) {
             return "";
         }
 
-        JSONObject remoteConfig = config.optJSONObject("remoteConfig");
         String url = withActiveManifestBase(remoteConfig.optString("telemetryUrl", "").trim());
         if (!url.isEmpty()) {
             return url;
@@ -687,7 +700,6 @@ public class MainActivity extends Activity {
         screen.getJSONArray("sections");
     }
 
-    @SuppressWarnings("deprecation")
     private View buildShell() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -719,9 +731,7 @@ public class MainActivity extends Activity {
         int navBottomPadding = dp(10);
         nav.setPadding(dp(8), dp(9), dp(8), navBottomPadding);
         nav.setBackground(rounded(SURFACE, 0, BORDER, 1));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            nav.setElevation(dp(8));
-        }
+        nav.setElevation(dp(8));
         root.addView(nav, new LinearLayout.LayoutParams(-1, navBaseHeight));
 
         root.setOnApplyWindowInsetsListener((view, insets) -> {
@@ -754,14 +764,12 @@ public class MainActivity extends Activity {
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(16), dp(14), dp(16), dp(12));
         bar.setBackground(rounded(TOP_BAR_SURFACE, 0, BORDER, 1));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            bar.setElevation(dp(2));
-        }
+        bar.setElevation(dp(2));
 
         TextView logo = text("EtokBike", 23, RED, true);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
-        messagesButton = topIconButton("", R.drawable.ic_message_24);
+        messagesButton = topIconButton(R.drawable.ic_message_24);
         updateMessageButton();
         messagesButton.setOnClickListener(v -> {
             trackAction("top_messages");
@@ -772,7 +780,7 @@ public class MainActivity extends Activity {
         View actionSpacer = new View(this);
         bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(8), 1));
 
-        cartButton = topIconButton("", R.drawable.ic_cart_24);
+        cartButton = topIconButton(R.drawable.ic_cart_24);
         updateCartButton();
         cartButton.setOnClickListener(v -> {
             trackAction("top_cart");
@@ -854,7 +862,7 @@ public class MainActivity extends Activity {
         try {
             if (!screen.optBoolean("hideTitle", false)) {
                 TextView title = text(screen.getString("title"), 28, BLACK, true);
-                title.setGravity(Gravity.RIGHT);
+                title.setGravity(Gravity.START);
                 content.addView(title, new LinearLayout.LayoutParams(-1, -2));
                 addSpace(content, 14);
             }
@@ -955,7 +963,7 @@ public class MainActivity extends Activity {
     private EditText addTextField(LinearLayout parent, String label, String value, boolean password, int minLines) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.RIGHT);
+        box.setGravity(Gravity.START);
         box.addView(text(label, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 4);
 
@@ -963,7 +971,7 @@ public class MainActivity extends Activity {
         input.setText(value == null ? "" : value);
         input.setTextSize(14);
         input.setTextColor(BLACK);
-        input.setGravity(Gravity.RIGHT);
+        input.setGravity(Gravity.START);
         input.setSingleLine(minLines <= 1);
         input.setMinLines(minLines);
         input.setBackground(rounded(SURFACE, 8, BORDER, 1));
@@ -977,7 +985,7 @@ public class MainActivity extends Activity {
     private Spinner addChoiceField(LinearLayout parent, String label, String[] options) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.RIGHT);
+        box.setGravity(Gravity.START);
         box.addView(text(label, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 4);
 
@@ -1131,9 +1139,10 @@ public class MainActivity extends Activity {
     }
 
     private void reloadRemoteScreen(String screenId) {
-        if (config == null || config.optJSONObject("screens") == null) return;
+        JSONObject screenConfigs = config == null ? null : config.optJSONObject("screens");
+        if (screenConfigs == null) return;
 
-        JSONObject screenMeta = config.optJSONObject("screens").optJSONObject(screenId);
+        JSONObject screenMeta = screenConfigs.optJSONObject(screenId);
         if (screenMeta == null) return;
 
         String url = screenMeta.optString("url", "").trim();
@@ -1181,15 +1190,16 @@ public class MainActivity extends Activity {
             addSpace(content, 12);
 
             TextView title = text(activeProgramDetail.getString("title"), 28, BLACK, true);
-            title.setGravity(Gravity.RIGHT);
+            title.setGravity(Gravity.START);
             content.addView(title, new LinearLayout.LayoutParams(-1, -2));
             addSpace(content, 14);
 
             content.addView(programDetail(activeProgramDetail));
-            if (isFinishedProgram(activeProgramDetail) && activeProgramDetail.optJSONArray("gallery") != null && activeProgramDetail.optJSONArray("gallery").length() > 0) {
+            JSONArray programGallery = activeProgramDetail.optJSONArray("gallery");
+            if (isFinishedProgram(activeProgramDetail) && programGallery != null && programGallery.length() > 0) {
                 addSpace(content, 14);
                 content.addView(sectionTitle(activeProgramDetail.optString("galleryTitle", "گالری برنامه")));
-                content.addView(gallery(activeProgramDetail.getJSONArray("gallery")));
+                content.addView(gallery(programGallery));
             }
             scrollToTop();
             animateScreenEntrance(!"program-detail".equals(previousScreen));
@@ -1259,55 +1269,78 @@ public class MainActivity extends Activity {
         JSONObject data = sectionData(section);
         JSONObject layout = section.optJSONObject("layout");
         String presentation = layout == null ? "" : layout.optString("presentation", layout.optString("content", ""));
-        if ("hero".equals(type)) {
-            content.addView(hero(data));
-        } else if ("category_grid".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(grid(data.getJSONArray("items"), true));
-        } else if ("product_row".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(horizontalCards(data.getJSONArray("items")));
-        } else if ("offer_sections".equals(type)) {
-            content.addView(offerSections(data));
-        } else if ("program_sections".equals(type)) {
-            content.addView(programSections(section));
-        } else if ("product_list".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(productList(data));
-        } else if ("service_list".equals(type) || "schedule_list".equals(type) || "activity_list".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            if ("carousel".equals(presentation)) {
+        switch (type) {
+            case "hero":
+                content.addView(hero(data));
+                break;
+            case "category_grid":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(grid(data.getJSONArray("items")));
+                break;
+            case "product_row":
+                content.addView(sectionTitle(data.getString("title")));
                 content.addView(horizontalCards(data.getJSONArray("items")));
-            } else {
-                content.addView(listCards(data.getJSONArray("items")));
-            }
-        } else if ("client_details".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(clientDetails(data));
-        } else if ("purchase_history".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(accountList(data.getJSONArray("items")));
-        } else if ("ongoing_purchase".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(ongoingPurchases(section));
-        } else if ("message_center".equals(type)) {
-            content.addView(messageCenter(section));
-        } else if ("cart_summary".equals(type)) {
-            content.addView(cartSummary(data));
-        } else if ("service_booking_form".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(serviceBookingForm(data));
-        } else if ("status_tracker".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(statusTrackers(section));
-        } else if ("bike_profile_list".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(bikeProfiles(data.getJSONArray("items")));
-        } else if ("business_info".equals(type)) {
-            content.addView(sectionTitle(data.getString("title")));
-            content.addView(businessInfo(data.getJSONArray("items")));
-        } else if ("checkout_note".equals(type) || "profile_summary".equals(type)) {
-            content.addView(infoPanel(data));
+                break;
+            case "offer_sections":
+                content.addView(offerSections(data));
+                break;
+            case "program_sections":
+                content.addView(programSections(section));
+                break;
+            case "product_list":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(productList(data));
+                break;
+            case "service_list":
+            case "schedule_list":
+            case "activity_list":
+                content.addView(sectionTitle(data.getString("title")));
+                if ("carousel".equals(presentation)) {
+                    content.addView(horizontalCards(data.getJSONArray("items")));
+                } else {
+                    content.addView(listCards(data.getJSONArray("items")));
+                }
+                break;
+            case "client_details":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(clientDetails(data));
+                break;
+            case "purchase_history":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(accountList(data.getJSONArray("items")));
+                break;
+            case "ongoing_purchase":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(ongoingPurchases(section));
+                break;
+            case "message_center":
+                content.addView(messageCenter(section));
+                break;
+            case "cart_summary":
+                content.addView(cartSummary(data));
+                break;
+            case "service_booking_form":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(serviceBookingForm(data));
+                break;
+            case "status_tracker":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(statusTrackers(section));
+                break;
+            case "bike_profile_list":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(bikeProfiles(data.getJSONArray("items")));
+                break;
+            case "business_info":
+                content.addView(sectionTitle(data.getString("title")));
+                content.addView(businessInfo(data.getJSONArray("items")));
+                break;
+            case "checkout_note":
+            case "profile_summary":
+                content.addView(infoPanel(data));
+                break;
+            default:
+                break;
         }
     }
 
@@ -1375,7 +1408,7 @@ public class MainActivity extends Activity {
             addSpace(box, 10);
             LinearLayout feature = new LinearLayout(this);
             feature.setOrientation(LinearLayout.VERTICAL);
-            feature.setGravity(Gravity.RIGHT);
+            feature.setGravity(Gravity.START);
             feature.setPadding(dp(14), dp(12), dp(14), dp(12));
             feature.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
             TextView featureTitleView = text(featureTitle, 15, BLACK, true);
@@ -1436,12 +1469,12 @@ public class MainActivity extends Activity {
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.RIGHT);
+        row.setGravity(Gravity.START);
         for (int i = 0; i < stats.length(); i++) {
             JSONObject item = stats.getJSONObject(i);
             LinearLayout stat = new LinearLayout(this);
             stat.setOrientation(LinearLayout.VERTICAL);
-            stat.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            stat.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             stat.setPadding(dp(12), dp(8), dp(12), dp(8));
             stat.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
             TextView value = text(item.getString("value"), 14, BLACK, true);
@@ -1470,7 +1503,7 @@ public class MainActivity extends Activity {
         return R.drawable.hero_bike_shop;
     }
 
-    private View grid(JSONArray items, boolean navigable) throws Exception {
+    private View grid(JSONArray items) throws Exception {
         LinearLayout wrap = new LinearLayout(this);
         wrap.setOrientation(LinearLayout.VERTICAL);
         for (int i = 0; i < items.length(); i += 2) {
@@ -1479,7 +1512,7 @@ public class MainActivity extends Activity {
             row.setGravity(Gravity.CENTER);
             for (int j = 0; j < 2 && i + j < items.length(); j++) {
                 JSONObject item = items.getJSONObject(i + j);
-                View card = smallCard(item, navigable);
+                View card = smallCard(item);
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(118), 1);
                 params.setMargins(dp(5), dp(5), dp(5), dp(5));
                 row.addView(card, params);
@@ -1587,7 +1620,7 @@ public class MainActivity extends Activity {
         }
 
         List<JSONObject> items = sortedPrograms(selectedSubsection.getJSONArray("items"));
-        wrap.addView(programCards(items, key));
+        wrap.addView(programCards(items));
 
         return wrap;
     }
@@ -1609,11 +1642,11 @@ public class MainActivity extends Activity {
         return items;
     }
 
-    private View programCards(List<JSONObject> items, String key) throws Exception {
+    private View programCards(List<JSONObject> items) throws Exception {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         for (int i = 0; i < items.size(); i++) {
-            View card = programCard(items.get(i), key);
+            View card = programCard(items.get(i));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
             params.setMargins(dp(0), dp(5), dp(0), dp(7));
             list.addView(card, params);
@@ -1621,7 +1654,7 @@ public class MainActivity extends Activity {
         return list;
     }
 
-    private View programCard(JSONObject item, String key) throws Exception {
+    private View programCard(JSONObject item) throws Exception {
         LinearLayout card = panel(WHITE);
         card.setBackground(interactiveBackground(WHITE, 8, BORDER, 1));
         String id = item.getString("id");
@@ -1629,7 +1662,6 @@ public class MainActivity extends Activity {
         attachPressAnimation(card);
         card.setOnClickListener(v -> {
             trackAction("program_open", metadata("program", id));
-            selectedPrograms.put(key, id);
             activeProgramDetail = item;
             renderScreen("program-detail");
         });
@@ -1647,7 +1679,6 @@ public class MainActivity extends Activity {
         Button action = button(isFutureProgram(item) ? item.optString("bookLabel", "رزرو برنامه") : item.optString("viewLabel", "مشاهده برنامه"), false);
         action.setOnClickListener(v -> {
             trackAction("program_open", metadata("program", id));
-            selectedPrograms.put(key, id);
             activeProgramDetail = item;
             renderScreen("program-detail");
         });
@@ -1685,7 +1716,7 @@ public class MainActivity extends Activity {
     }
 
     private void submitProgramBooking(JSONObject item) {
-        if (!hasCustomerIdentity()) {
+        if (isMissingCustomerIdentity()) {
             Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
             openScreen("account");
             return;
@@ -1754,15 +1785,15 @@ public class MainActivity extends Activity {
         return gallery;
     }
 
-    private View galleryPhoto(JSONObject photo, boolean featured) throws Exception {
+    private View galleryPhoto(JSONObject photo, boolean featured) {
         LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
-        tile.setGravity(Gravity.BOTTOM | Gravity.RIGHT);
+        tile.setGravity(Gravity.BOTTOM | Gravity.START);
         tile.setPadding(dp(12), dp(12), dp(12), dp(12));
-        tile.setBackground(rounded(photo.optString("thumbnailColor", "#101114"), 10, 0, 0));
+        tile.setBackground(rounded(photo.optString("thumbnailColor", "#101114")));
 
         TextView marker = text(photo.optString("thumbnailText", "PHOTO"), featured ? 28 : 18, WHITE, true);
-        marker.setGravity(Gravity.RIGHT);
+        marker.setGravity(Gravity.START);
         tile.addView(marker, new LinearLayout.LayoutParams(-1, 0, 1));
 
         String captionValue = photo.optString("caption", "");
@@ -1773,28 +1804,6 @@ public class MainActivity extends Activity {
             tile.addView(caption, new LinearLayout.LayoutParams(-1, -2));
         }
         return tile;
-    }
-
-    private View compactGallery(JSONArray photos) throws Exception {
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        for (int i = 0; i < photos.length(); i++) {
-            JSONObject photo = photos.getJSONObject(i);
-            LinearLayout item = panel(WHITE);
-            item.addView(thumbnail(photo, dp(GALLERY_PREVIEW_HEIGHT_DP)), new LinearLayout.LayoutParams(-1, dp(GALLERY_PREVIEW_HEIGHT_DP)));
-            addSpace(item, 6);
-            TextView caption = text(photo.optString("caption", ""), 12, MUTED, false);
-            caption.setMaxLines(2);
-            caption.setEllipsize(TextUtils.TruncateAt.END);
-            item.addView(caption, new LinearLayout.LayoutParams(-1, -2));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(GALLERY_PREVIEW_WIDTH_DP), -2);
-            params.setMargins(dp(6), dp(4), dp(6), dp(4));
-            row.addView(item, params);
-        }
-        scroll.addView(row);
-        return scroll;
     }
 
     private void openProductDetail(JSONObject item) {
@@ -1840,7 +1849,7 @@ public class MainActivity extends Activity {
             boolean selected = index == activeProductGalleryIndex;
             LinearLayout tile = new LinearLayout(this);
             tile.setOrientation(LinearLayout.VERTICAL);
-            tile.setGravity(Gravity.RIGHT);
+            tile.setGravity(Gravity.START);
             tile.setPadding(dp(8), dp(8), dp(8), dp(8));
             tile.setBackground(rounded(selected ? RED_TINT : SURFACE, 10, selected ? RED : BORDER, selected ? 2 : 1));
             tile.setFocusable(true);
@@ -1979,7 +1988,7 @@ public class MainActivity extends Activity {
     private View productFactCell(JSONObject fact) throws Exception {
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.VERTICAL);
-        cell.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        cell.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         cell.setPadding(dp(12), dp(8), dp(12), dp(8));
         cell.setBackground(rounded(SURFACE_ALT, 10, BORDER, 1));
         cell.addView(text(fact.getString("label"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
@@ -2027,10 +2036,16 @@ public class MainActivity extends Activity {
         if (!stockLabel.isEmpty()) return stockLabel;
 
         String availability = item.optString("availability", "");
-        if ("in_stock".equals(availability)) return "موجود";
-        if ("low_stock".equals(availability)) return "موجودی محدود";
-        if ("orderable".equals(availability)) return "قابل سفارش";
-        return "استعلام موجودی";
+        switch (availability) {
+            case "in_stock":
+                return "موجود";
+            case "low_stock":
+                return "موجودی محدود";
+            case "orderable":
+                return "قابل سفارش";
+            default:
+                return "استعلام موجودی";
+        }
     }
 
     private boolean isFutureProgram(JSONObject item) {
@@ -2164,7 +2179,7 @@ public class MainActivity extends Activity {
         totalRow.setGravity(Gravity.CENTER_VERTICAL);
         totalRow.addView(text(data.optString("totalLabel", "جمع کل"), 13, MUTED, false), new LinearLayout.LayoutParams(0, -2, 1));
         TextView totalValue = text(formatToman(cartSubtotal()), 20, BLACK, true);
-        totalValue.setGravity(Gravity.LEFT);
+        totalValue.setGravity(Gravity.END);
         totalRow.addView(totalValue, new LinearLayout.LayoutParams(0, -2, 1));
         total.addView(totalRow, new LinearLayout.LayoutParams(-1, -2));
         addSpace(total, 10);
@@ -2179,7 +2194,7 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
-    private LinearLayout cartLineCard(JSONObject item) throws Exception {
+    private LinearLayout cartLineCard(JSONObject item) {
         LinearLayout card = panel(WHITE);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -2189,7 +2204,7 @@ public class MainActivity extends Activity {
 
         LinearLayout detail = new LinearLayout(this);
         detail.setOrientation(LinearLayout.VERTICAL);
-        detail.setGravity(Gravity.RIGHT);
+        detail.setGravity(Gravity.START);
         detail.addView(text(item.optString("title", "محصول"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         String subtitle = item.optString("subtitle", item.optString("stockLabel", ""));
         if (!subtitle.isEmpty()) {
@@ -2304,7 +2319,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (!hasCustomerIdentity()) {
+        if (isMissingCustomerIdentity()) {
             Toast.makeText(this, "نام و شماره تماس را وارد کنید", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -2335,6 +2350,9 @@ public class MainActivity extends Activity {
             JSONArray items = new JSONArray();
             for (String key : cartItems.keySet()) {
                 JSONObject product = cartItems.get(key);
+                if (product == null) {
+                    continue;
+                }
                 JSONObject orderItem = new JSONObject();
                 int quantity = product.optInt("quantity", 1);
                 orderItem.put("product_id", product.optString("id", key));
@@ -2380,7 +2398,7 @@ public class MainActivity extends Activity {
         problem.setHint(data.optString("problemPlaceholder", "توضیح مشکل"));
         problem.setTextSize(14);
         problem.setTextColor(BLACK);
-        problem.setGravity(Gravity.RIGHT);
+        problem.setGravity(Gravity.START);
         problem.setMinLines(3);
         problem.setBackground(rounded(SURFACE, 8, BORDER, 1));
         problem.setPadding(dp(12), dp(8), dp(12), dp(8));
@@ -2405,7 +2423,7 @@ public class MainActivity extends Activity {
     private Spinner addDropdownField(LinearLayout parent, String label, JSONArray options) throws Exception {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.RIGHT);
+        box.setGravity(Gravity.START);
         box.addView(text(label, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 4);
 
@@ -2439,7 +2457,7 @@ public class MainActivity extends Activity {
     }
 
     private void submitServiceBooking(String service, String bike, String time, String problem, EditText problemInput) {
-        if (!hasCustomerIdentity()) {
+        if (isMissingCustomerIdentity()) {
             Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
             openScreen("account");
             return;
@@ -2590,7 +2608,7 @@ public class MainActivity extends Activity {
         input.setTextSize(14);
         input.setTextColor(BLACK);
         input.setHint(department.optString("placeholder", "پیام خود را بنویسید"));
-        input.setGravity(Gravity.RIGHT);
+        input.setGravity(Gravity.START);
         input.setMinLines(3);
         input.setBackground(rounded(SURFACE, 8, BORDER, 1));
         input.setPadding(dp(12), dp(8), dp(12), dp(8));
@@ -2613,7 +2631,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (!hasCustomerIdentity()) {
+        if (isMissingCustomerIdentity()) {
             Toast.makeText(this, "نام و شماره تماس را در حساب وارد کنید", Toast.LENGTH_SHORT).show();
             openScreen("account");
             return;
@@ -2665,7 +2683,8 @@ public class MainActivity extends Activity {
         List<JSONObject> items = filteredProducts(section.getJSONArray("items"), selectedCategory, filters, query);
         int initialItems = section.optInt("initialItems", 4);
         int pageSize = section.optInt("pageSize", initialItems);
-        int visible = visibleItemCounts.containsKey(key) ? visibleItemCounts.get(key) : initialItems;
+        Integer storedVisible = visibleItemCounts.get(key);
+        int visible = storedVisible == null ? initialItems : storedVisible;
         visible = Math.min(visible, items.size());
 
         LinearLayout list = new LinearLayout(this);
@@ -2692,9 +2711,9 @@ public class MainActivity extends Activity {
         }
 
         if (visible < items.size()) {
-            Button more = button(section.optString("loadMoreLabel", "نمایش بیشتر"), false);
+            String moreLabel = String.format(Locale.US, "%s (%d/%d)", section.optString("loadMoreLabel", "نمایش بیشتر"), visible, items.size());
+            Button more = button(moreLabel, false);
             int nextVisible = Math.min(visible + pageSize, items.size());
-            more.setText(more.getText() + " (" + visible + "/" + items.size() + ")");
             more.setOnClickListener(v -> {
                 trackAction("product_load_more", metadata("visible", String.valueOf(nextVisible)));
                 visibleItemCounts.put(key, nextVisible);
@@ -2724,7 +2743,7 @@ public class MainActivity extends Activity {
         input.setTextColor(BLACK);
         input.setSingleLine(true);
         input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        input.setGravity(Gravity.RIGHT);
+        input.setGravity(Gravity.START);
         input.setBackground(rounded(SURFACE_ALT, 10, BORDER, 1));
         input.setPadding(dp(12), dp(0), dp(12), dp(0));
         input.setOnEditorActionListener((view, actionId, event) -> {
@@ -2737,9 +2756,7 @@ public class MainActivity extends Activity {
         searchRow.addView(input, new LinearLayout.LayoutParams(0, dp(48), 1));
 
         Button apply = button("اعمال", false);
-        apply.setOnClickListener(v -> {
-            applyProductSearch(key, input.getText().toString().trim());
-        });
+        apply.setOnClickListener(v -> applyProductSearch(key, input.getText().toString().trim()));
         LinearLayout.LayoutParams applyParams = new LinearLayout.LayoutParams(dp(92), dp(48));
         applyParams.setMargins(dp(0), dp(0), dp(8), dp(0));
         searchRow.addView(apply, applyParams);
@@ -2757,10 +2774,10 @@ public class MainActivity extends Activity {
 
     private List<JSONObject> filteredProducts(JSONArray source, String selectedCategory, Map<String, String> filters, String query) throws Exception {
         List<JSONObject> result = new ArrayList<>();
-        String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         for (int i = 0; i < source.length(); i++) {
             JSONObject item = source.getJSONObject(i);
-            String searchable = (item.optString("title", "") + " " + item.optString("subtitle", "") + " " + item.optString("description", "")).toLowerCase();
+            String searchable = (item.optString("title", "") + " " + item.optString("subtitle", "") + " " + item.optString("description", "")).toLowerCase(Locale.ROOT);
             boolean matchesSearch = normalizedQuery.isEmpty() || searchable.contains(normalizedQuery);
             if ((selectedCategory.isEmpty() || selectedCategory.equals(item.optString("category", ""))) && matchesFilters(item, filters) && matchesSearch) {
                 result.add(item);
@@ -2772,24 +2789,47 @@ public class MainActivity extends Activity {
 
     private boolean matchesFilters(JSONObject item, Map<String, String> filters) {
         String availability = filters.containsKey("availability") ? filters.get("availability") : "all";
-        if (!"all".equals(availability) && !availability.equals(item.optString("availability", ""))) {
+        if (availability == null) {
+            availability = "all";
+        }
+        if (!"all".equals(availability) && !item.optString("availability", "").equals(availability)) {
             return false;
         }
 
         String priceBand = filters.containsKey("priceBand") ? filters.get("priceBand") : "all";
+        if (priceBand == null) {
+            priceBand = "all";
+        }
         int price = item.optInt("priceValue", 0);
-        if ("under_2m".equals(priceBand)) return price < 2000000;
-        if ("2m_20m".equals(priceBand)) return price >= 2000000 && price <= 20000000;
-        if ("over_20m".equals(priceBand)) return price > 20000000;
-        return true;
+        switch (priceBand) {
+            case "under_2m":
+                return price < 2000000;
+            case "2m_20m":
+                return price >= 2000000 && price <= 20000000;
+            case "over_20m":
+                return price > 20000000;
+            default:
+                return true;
+        }
     }
 
     private void sortProducts(List<JSONObject> items, String sort) {
         if ("price_low".equals(sort)) {
-            Collections.sort(items, (left, right) -> left.optInt("priceValue", 0) - right.optInt("priceValue", 0));
+            Collections.sort(items, this::comparePrices);
         } else if ("price_high".equals(sort)) {
-            Collections.sort(items, (left, right) -> right.optInt("priceValue", 0) - left.optInt("priceValue", 0));
+            Collections.sort(items, this::comparePricesDescending);
         }
+    }
+
+    private int comparePricesDescending(JSONObject left, JSONObject right) {
+        return comparePrices(right, left);
+    }
+
+    private int comparePrices(JSONObject left, JSONObject right) {
+        int leftPrice = left.optInt("priceValue", 0);
+        int rightPrice = right.optInt("priceValue", 0);
+        if (leftPrice == rightPrice) return 0;
+        return leftPrice < rightPrice ? -1 : 1;
     }
 
     private Map<String, String> currentFilterValues(JSONObject section, String key) throws Exception {
@@ -2801,7 +2841,8 @@ public class MainActivity extends Activity {
             JSONObject filter = filters.getJSONObject(i);
             String id = filter.getString("id");
             String stateKey = key + ":" + id;
-            values.put(id, selectedFilters.containsKey(stateKey) ? selectedFilters.get(stateKey) : filter.optString("default", "all"));
+            String selectedValue = selectedFilters.get(stateKey);
+            values.put(id, selectedValue == null ? filter.optString("default", "all") : selectedValue);
         }
         return values;
     }
@@ -2850,53 +2891,10 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
-    private View categoryDropdown(JSONObject section, String key, String selectedCategory) throws Exception {
-        LinearLayout box = panel(SURFACE);
-        box.addView(text(section.optString("categoryLabel", "دسته‌بندی"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 6);
-
-        JSONArray categories = section.getJSONArray("categories");
-        List<String> labels = new ArrayList<>();
-        List<String> ids = new ArrayList<>();
-        int selectedIndex = 0;
-        for (int i = 0; i < categories.length(); i++) {
-            JSONObject category = categories.getJSONObject(i);
-            ids.add(category.getString("id"));
-            labels.add(category.getString("label"));
-            if (category.getString("id").equals(selectedCategory)) {
-                selectedIndex = i;
-            }
-        }
-
-        Spinner spinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setSelection(selectedIndex, false);
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String newCategory = ids.get(position);
-                if (!newCategory.equals(selectedCategory)) {
-                    trackAction("product_category_filter", metadata("category", newCategory));
-                    selectedCategories.put(key, newCategory);
-                    visibleItemCounts.remove(key);
-                    renderScreen(currentScreen);
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-        box.addView(spinner, new LinearLayout.LayoutParams(-1, dp(48)));
-        return box;
-    }
-
     private View filtersPanel(JSONObject section, String key, Map<String, String> filtersState) throws Exception {
         LinearLayout box = panel(SURFACE);
         box.setPadding(dp(14), dp(14), dp(14), dp(14));
-        boolean expanded = expandedFilterSections.containsKey(key) && expandedFilterSections.get(key);
+        boolean expanded = Boolean.TRUE.equals(expandedFilterSections.get(key));
         int activeFilters = activeFilterCount(section, filtersState);
         String toggleLabel = expanded
                 ? section.optString("filtersExpandedLabel", section.optString("filtersTitle", ""))
@@ -2955,6 +2953,9 @@ public class MainActivity extends Activity {
             JSONObject filter = filters.getJSONObject(i);
             String id = filter.getString("id");
             String value = filtersState.containsKey(id) ? filtersState.get(id) : filter.optString("default", "all");
+            if (value == null) {
+                value = filter.optString("default", "all");
+            }
             if (!isDefaultFilter(filter, value)) {
                 count++;
             }
@@ -2965,7 +2966,7 @@ public class MainActivity extends Activity {
     private View filterDropdown(JSONObject filter, String key, String selectedValue) throws Exception {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.RIGHT);
+        box.setGravity(Gravity.START);
 
         box.addView(text(filter.getString("label"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 4);
@@ -2974,11 +2975,12 @@ public class MainActivity extends Activity {
         List<String> labels = new ArrayList<>();
         List<String> ids = new ArrayList<>();
         int selectedIndex = 0;
+        String currentValue = selectedValue == null ? filter.optString("default", "all") : selectedValue;
         for (int i = 0; i < options.length(); i++) {
             JSONObject option = options.getJSONObject(i);
             ids.add(option.getString("id"));
             labels.add(option.getString("label"));
-            if (option.getString("id").equals(selectedValue)) {
+            if (option.getString("id").equals(currentValue)) {
                 selectedIndex = i;
             }
         }
@@ -2995,7 +2997,8 @@ public class MainActivity extends Activity {
                     String filterId = filter.getString("id");
                     String stateKey = key + ":" + filterId;
                     String newValue = ids.get(position);
-                    if (!newValue.equals(selectedFilters.get(stateKey)) && !isDefaultFilter(filter, newValue)) {
+                    String previousValue = selectedFilters.get(stateKey);
+                    if (!newValue.equals(previousValue) && !isDefaultFilter(filter, newValue)) {
                         trackAction("product_filter", metadata(filterId, newValue));
                         selectedFilters.put(stateKey, newValue);
                         visibleItemCounts.remove(key);
@@ -3020,7 +3023,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean isDefaultFilter(JSONObject filter, String value) {
-        return value.equals(filter.optString("default", "all"));
+        return filter.optString("default", "all").equals(value);
     }
 
     private View listCards(JSONArray items) throws Exception {
@@ -3107,7 +3110,7 @@ public class MainActivity extends Activity {
         card.addView(text(item.optString("status", ""), 14, ACCENT, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(card, 10);
 
-        boolean expanded = expandedAccountSections.containsKey(key) && expandedAccountSections.get(key);
+        boolean expanded = Boolean.TRUE.equals(expandedAccountSections.get(key));
         Button toggle = button(expanded ? item.optString("collapseLabel", "بستن وضعیت") : item.optString("expandLabel", "مشاهده وضعیت"), false);
         toggle.setOnClickListener(v -> {
             trackAction(expanded ? "status_collapse" : "status_expand", metadata("item", item.optString("id", "")));
@@ -3139,13 +3142,11 @@ public class MainActivity extends Activity {
         return card;
     }
 
-    private View smallCard(JSONObject item, boolean navigable) throws Exception {
+    private View smallCard(JSONObject item) throws Exception {
         LinearLayout card = panel(SURFACE);
-        if (navigable) {
-            card.setBackground(interactiveBackground(SURFACE, 8, BORDER, 1));
-            card.setFocusable(true);
-            attachPressAnimation(card);
-        }
+        card.setBackground(interactiveBackground(SURFACE, 8, BORDER, 1));
+        card.setFocusable(true);
+        attachPressAnimation(card);
         String badge = item.optString("badge", "");
         if (!badge.isEmpty()) {
             TextView badgeView = pillText(badge, 11, ACCENT, RED_TINT, ACCENT);
@@ -3156,13 +3157,11 @@ public class MainActivity extends Activity {
         card.addView(text(item.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(card, 6);
         card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        if (navigable) {
-            String target = item.optString("target", "shop");
-            card.setOnClickListener(v -> {
-                trackAction("shortcut_card", metadata("target", target));
-                openScreen(target);
-            });
-        }
+        String target = item.optString("target", "shop");
+        card.setOnClickListener(v -> {
+            trackAction("shortcut_card", metadata("target", target));
+            openScreen(target);
+        });
         return card;
     }
 
@@ -3182,7 +3181,7 @@ public class MainActivity extends Activity {
 
         LinearLayout detail = new LinearLayout(this);
         detail.setOrientation(LinearLayout.VERTICAL);
-        detail.setGravity(Gravity.RIGHT);
+        detail.setGravity(Gravity.START);
         TextView title = text(item.getString("title"), compact ? 19 : 17, BLACK, true);
         title.setMaxLines(2);
         detail.addView(title, new LinearLayout.LayoutParams(-1, -2));
@@ -3244,7 +3243,7 @@ public class MainActivity extends Activity {
         String url = remoteUrl("cartItemsUrl", "/cart/items");
 
         if (url.isEmpty() || productId.isEmpty()) {
-            cacheCartItem(item, 1);
+            cacheCartItem(item);
             cartCount++;
             updateCartButton();
             pulseView(cartButton);
@@ -3267,7 +3266,7 @@ public class MainActivity extends Activity {
                         if (data != null) {
                             applyCartPayload(data);
                         } else {
-                            cacheCartItem(item, 1);
+                            cacheCartItem(item);
                             cartCount = nextCount;
                         }
                         updateCartButton();
@@ -3288,13 +3287,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void cacheCartItem(JSONObject item, int quantity) {
+    private void cacheCartItem(JSONObject item) {
         String id = item.optString("id", item.optString("title", ""));
         if (id.isEmpty()) return;
 
         try {
-            JSONObject cached = cartItems.containsKey(id) ? cartItems.get(id) : new JSONObject(item.toString());
-            cached.put("quantity", cached.optInt("quantity", 0) + quantity);
+            JSONObject cached = cartItems.get(id);
+            if (cached == null) {
+                cached = new JSONObject(item.toString());
+            }
+            cached.put("quantity", cached.optInt("quantity", 0) + 1);
             cartItems.put(id, cached);
         } catch (Exception ignored) {
         }
@@ -3381,7 +3383,7 @@ public class MainActivity extends Activity {
         fallback.setGravity(Gravity.CENTER);
         fallback.setSingleLine(true);
         fallback.setEllipsize(TextUtils.TruncateAt.END);
-        fallback.setBackground(rounded(item.optString("thumbnailColor", "#101114"), 10, 0, 0));
+        fallback.setBackground(rounded(item.optString("thumbnailColor", "#101114")));
         fallback.setMinHeight(height);
 
         if (imageUrl.isEmpty()) {
@@ -3389,7 +3391,7 @@ public class MainActivity extends Activity {
         }
 
         FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(rounded(item.optString("thumbnailColor", "#101114"), 10, 0, 0));
+        frame.setBackground(rounded(item.optString("thumbnailColor", "#101114")));
         frame.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
 
         ImageView image = new ImageView(this);
@@ -3456,17 +3458,15 @@ public class MainActivity extends Activity {
     private LinearLayout panel(int color) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.RIGHT);
+        box.setGravity(Gravity.START);
         box.setPadding(dp(16), dp(16), dp(16), dp(16));
         box.setBackground(rounded(color, 10, BORDER, 1));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            box.setElevation(dp(1));
-        }
+        box.setElevation(dp(1));
         return box;
     }
 
-    private GradientDrawable rounded(String color, int radius, int strokeColor, int strokeWidth) {
-        return rounded(Color.parseColor(color), radius, strokeColor, strokeWidth);
+    private GradientDrawable rounded(String color) {
+        return rounded(Color.parseColor(color), 10, 0, 0);
     }
 
     private GradientDrawable rounded(int color, int radius, int strokeColor, int strokeWidth) {
@@ -3481,9 +3481,6 @@ public class MainActivity extends Activity {
 
     private Drawable interactiveBackground(int color, int radius, int strokeColor, int strokeWidth) {
         GradientDrawable content = rounded(color, radius, strokeColor, strokeWidth);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            return content;
-        }
         int rippleColor = color == RED
                 ? Color.argb(42, 255, 255, 255)
                 : Color.argb(28, Color.red(RED), Color.green(RED), Color.blue(RED));
@@ -3495,7 +3492,7 @@ public class MainActivity extends Activity {
         view.setText(value);
         view.setTextSize(sp);
         view.setTextColor(color);
-        view.setGravity(Gravity.RIGHT);
+        view.setGravity(Gravity.START);
         view.setIncludeFontPadding(true);
         view.setLineSpacing(dp(2), 1.0f);
         view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
@@ -3522,8 +3519,8 @@ public class MainActivity extends Activity {
         return button;
     }
 
-    private Button topIconButton(String label, int iconResource) {
-        Button action = button(label, false);
+    private Button topIconButton(int iconResource) {
+        Button action = button("", false);
         action.setTextColor(WHITE);
         action.setTextSize(13);
         action.setBackground(interactiveBackground(RED, 14, DARK_RED, 1));
@@ -3551,6 +3548,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void attachPressAnimation(View view) {
         if (view == null) return;
 
@@ -3706,11 +3704,11 @@ public class MainActivity extends Activity {
     }
 
     private String remoteUrl(String key, String fallbackPath) {
-        if (config == null || config.optJSONObject("remoteConfig") == null) {
+        JSONObject remoteConfig = remoteConfig();
+        if (remoteConfig == null) {
             return "";
         }
 
-        JSONObject remoteConfig = config.optJSONObject("remoteConfig");
         String configured = withActiveManifestBase(remoteConfig.optString(key, "").trim());
         if (!configured.isEmpty()) {
             return configured;
@@ -3728,9 +3726,10 @@ public class MainActivity extends Activity {
         return "";
     }
 
+    @SuppressWarnings("CharsetObjectCanBeUsed")
     private String urlEncode(String value) {
         try {
-            return URLEncoder.encode(value, "UTF-8");
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.toString());
         } catch (Exception ignored) {
             return value;
         }
@@ -3824,9 +3823,9 @@ public class MainActivity extends Activity {
         addAuthHeader(connection);
         connection.setDoOutput(true);
 
-        OutputStream output = connection.getOutputStream();
-        output.write(json.getBytes("UTF-8"));
-        output.close();
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(json.getBytes(StandardCharsets.UTF_8));
+        }
 
         int code = connection.getResponseCode();
         if (code < 200 || code >= 300) {
@@ -3849,7 +3848,7 @@ public class MainActivity extends Activity {
 
     private String sha256(String value) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(value.getBytes("UTF-8"));
+        byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
         StringBuilder builder = new StringBuilder();
         for (byte b : hash) {
             String hex = Integer.toHexString(0xff & b);
@@ -3864,14 +3863,14 @@ public class MainActivity extends Activity {
     }
 
     private String readStream(InputStream input) throws Exception {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[4096];
-        int read;
-        while ((read = input.read(buffer)) != -1) {
-            output.write(buffer, 0, read);
+        try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = source.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            return new String(output.toByteArray(), StandardCharsets.UTF_8);
         }
-        input.close();
-        return output.toString("UTF-8");
     }
 
     private ViewGroup.LayoutParams match() {
@@ -3907,6 +3906,7 @@ public class MainActivity extends Activity {
         }
 
         @Override
+        @SuppressWarnings("NullableProblems")
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
 
@@ -3958,7 +3958,6 @@ public class MainActivity extends Activity {
 
         private void drawCyclist(Canvas canvas, float x, float roadY) {
             float wheelRadius = d(15);
-            float rearX = x;
             float frontX = x + d(58);
             float wheelY = roadY - wheelRadius;
             float crankX = x + d(28);
@@ -3972,14 +3971,14 @@ public class MainActivity extends Activity {
             paint.setStrokeWidth(d(3));
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setColor(BLACK);
-            canvas.drawCircle(rearX, wheelY, wheelRadius, paint);
+            canvas.drawCircle(x, wheelY, wheelRadius, paint);
             canvas.drawCircle(frontX, wheelY, wheelRadius, paint);
 
             paint.setColor(RED);
-            canvas.drawLine(rearX, wheelY, crankX, crankY, paint);
+            canvas.drawLine(x, wheelY, crankX, crankY, paint);
             canvas.drawLine(crankX, crankY, frontX, wheelY, paint);
             canvas.drawLine(crankX, crankY, seatX, seatY, paint);
-            canvas.drawLine(seatX, seatY, rearX, wheelY, paint);
+            canvas.drawLine(seatX, seatY, x, wheelY, paint);
             canvas.drawLine(seatX, seatY, handleX, handleY, paint);
             canvas.drawLine(handleX, handleY, frontX, wheelY, paint);
 
@@ -4040,11 +4039,8 @@ public class MainActivity extends Activity {
 
         String getManifestJson() {
             SQLiteDatabase db = getReadableDatabase();
-            Cursor cursor = db.rawQuery("SELECT raw_json FROM app_manifest WHERE id = 1", null);
-            try {
+            try (Cursor cursor = db.rawQuery("SELECT raw_json FROM app_manifest WHERE id = 1", null)) {
                 return cursor.moveToFirst() ? cursor.getString(0) : null;
-            } finally {
-                cursor.close();
             }
         }
 
@@ -4059,24 +4055,18 @@ public class MainActivity extends Activity {
 
         ScreenCacheEntry getScreenCache(String screenId) {
             SQLiteDatabase db = getReadableDatabase();
-            Cursor cursor = db.rawQuery("SELECT raw_json, version FROM screen_configs WHERE screen_id = ?", new String[]{screenId});
-            try {
+            try (Cursor cursor = db.rawQuery("SELECT raw_json, version FROM screen_configs WHERE screen_id = ?", new String[]{screenId})) {
                 if (!cursor.moveToFirst()) {
                     return null;
                 }
                 return new ScreenCacheEntry(cursor.getString(0), cursor.getInt(1));
-            } finally {
-                cursor.close();
             }
         }
 
         int getScreenVersion(String screenId) {
             SQLiteDatabase db = getReadableDatabase();
-            Cursor cursor = db.rawQuery("SELECT version FROM screen_configs WHERE screen_id = ?", new String[]{screenId});
-            try {
+            try (Cursor cursor = db.rawQuery("SELECT version FROM screen_configs WHERE screen_id = ?", new String[]{screenId})) {
                 return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-            } finally {
-                cursor.close();
             }
         }
 
