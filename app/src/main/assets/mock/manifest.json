@@ -18,10 +18,14 @@
     "direction": "rtl",
     "colors": {
       "primary": "#D71920",
-      "background": "#FFFFFF",
-      "surface": "#F7F7F8",
+      "background": "#FAF8F5",
+      "surface": "#FFFFFF",
+      "surfaceAlt": "#F3F1ED",
       "text": "#101114",
-      "muted": "#626368"
+      "muted": "#626368",
+      "border": "#E5E2DC",
+      "secondary": "#1B4D3E",
+      "highlight": "#E8A317"
     }
   },
   "navigation": [
