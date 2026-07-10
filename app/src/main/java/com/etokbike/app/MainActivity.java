@@ -2,6 +2,7 @@ package com.etokbike.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -72,7 +73,7 @@ public class MainActivity extends Activity {
     private static final String TELEMETRY_DEVICE_ID_PREF = "telemetry_device_id";
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
     private static final long TELEMETRY_HEARTBEAT_MS = 60000L;
-    private static final long INTRO_MIN_DURATION_MS = 1650L;
+    private static final long INTRO_MIN_DURATION_MS = 700L;
     private static final long SCREEN_ANIMATION_MS = 220L;
     private static final long SCREEN_STAGGER_MS = 24L;
     private static final long PRESS_ANIMATION_MS = 90L;
@@ -101,6 +102,11 @@ public class MainActivity extends Activity {
     private static final int HERO_BORDER = Color.rgb(246, 198, 202);
     private static final int RED_TINT = HERO_SURFACE;
     private static final int SECONDARY = Color.rgb(27, 77, 62);
+    private static final int SUCCESS = Color.rgb(15, 118, 110);
+    private static final int SUCCESS_SOFT = Color.rgb(232, 247, 244);
+    private static final int WARNING = Color.rgb(217, 119, 6);
+    private static final int WARNING_SOFT = Color.rgb(255, 244, 229);
+    private static final int NEUTRAL_SOFT = Color.rgb(244, 244, 245);
 
     private final Map<String, JSONObject> screens = new HashMap<>();
     private final Map<String, Integer> visibleItemCounts = new HashMap<>();
@@ -110,6 +116,7 @@ public class MainActivity extends Activity {
     private final Map<String, String> searchQueries = new HashMap<>();
     private final Map<String, String> selectedFilters = new HashMap<>();
     private final Map<String, Boolean> expandedFilterSections = new HashMap<>();
+    private final Map<String, Boolean> expandedCategorySections = new HashMap<>();
     private final Map<String, Boolean> expandedAccountSections = new HashMap<>();
     private final Handler telemetryHandler = new Handler(Looper.getMainLooper());
     private final Runnable telemetryHeartbeat = new Runnable() {
@@ -145,10 +152,14 @@ public class MainActivity extends Activity {
     private String customerEmail = "";
     private String customerAddress = "";
     private String activeManifestUrl = "";
+    private Typeface bodyTypeface;
+    private Typeface emphasisTypeface;
+    private boolean showingRegistrationForm = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        initializeTypography();
         customerPreferences = getSharedPreferences(CUSTOMER_PREFS, MODE_PRIVATE);
         initializeTelemetry();
         activeManifestUrl = customerPreferences.getString(ACTIVE_MANIFEST_URL_PREF, "");
@@ -156,10 +167,27 @@ public class MainActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setStatusBarColor(TOP_BAR_SURFACE);
         getWindow().setNavigationBarColor(SURFACE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        int systemUiFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            systemUiFlags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        getWindow().getDecorView().setSystemUiVisibility(systemUiFlags);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
         showIntroAndStart();
+    }
+
+    private void initializeTypography() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            bodyTypeface = getResources().getFont(R.font.vazirmatn_regular);
+            emphasisTypeface = getResources().getFont(R.font.vazirmatn_semibold);
+        } else {
+            bodyTypeface = Typeface.create("sans-serif", Typeface.NORMAL);
+            emphasisTypeface = Typeface.create("sans-serif-medium", Typeface.NORMAL);
+        }
     }
 
     @Override
@@ -716,20 +744,21 @@ public class MainActivity extends Activity {
 
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
+        scrollView.setVerticalScrollBarEnabled(false);
         scrollView.setBackgroundColor(BACKGROUND);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        int contentBottomPadding = dp(112);
-        content.setPadding(dp(16), dp(14), dp(16), contentBottomPadding);
+        int contentBottomPadding = dp(24);
+        content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding);
         scrollView.addView(content, new ScrollView.LayoutParams(-1, -2));
         root.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1));
 
         nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        int navBaseHeight = dp(78);
-        int navBottomPadding = dp(10);
-        nav.setPadding(dp(8), dp(9), dp(8), navBottomPadding);
+        int navBaseHeight = dp(66);
+        int navBottomPadding = dp(4);
+        nav.setPadding(dp(6), dp(6), dp(6), navBottomPadding);
         nav.setBackground(rounded(SURFACE, 0, BORDER, 1));
         nav.setElevation(dp(8));
         root.addView(nav, new LinearLayout.LayoutParams(-1, navBaseHeight));
@@ -743,8 +772,8 @@ public class MainActivity extends Activity {
                     topBarBasePaddingRight,
                     topBarBasePaddingBottom
             );
-            content.setPadding(dp(16), dp(14), dp(16), contentBottomPadding + systemBottomInset);
-            nav.setPadding(dp(8), dp(9), dp(8), navBottomPadding + systemBottomInset);
+            content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding);
+            nav.setPadding(dp(6), dp(6), dp(6), navBottomPadding + systemBottomInset);
 
             ViewGroup.LayoutParams navParams = nav.getLayoutParams();
             if (navParams != null && navParams.height != navBaseHeight + systemBottomInset) {
@@ -762,11 +791,12 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(16), dp(14), dp(16), dp(12));
+        bar.setPadding(dp(16), dp(8), dp(16), dp(8));
         bar.setBackground(rounded(TOP_BAR_SURFACE, 0, BORDER, 1));
         bar.setElevation(dp(2));
 
-        TextView logo = text("EtokBike", 23, RED, true);
+        TextView logo = text("EtokBike", 20, RED, true);
+        logo.setContentDescription("EtokBike، فروشگاه تخصصی دوچرخه");
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
         messagesButton = topIconButton(R.drawable.ic_message_24);
@@ -775,10 +805,10 @@ public class MainActivity extends Activity {
             trackAction("top_messages");
             openScreen("messages");
         });
-        bar.addView(messagesButton, new LinearLayout.LayoutParams(dp(52), dp(44)));
+        bar.addView(messagesButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         View actionSpacer = new View(this);
-        bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(8), 1));
+        bar.addView(actionSpacer, new LinearLayout.LayoutParams(dp(6), 1));
 
         cartButton = topIconButton(R.drawable.ic_cart_24);
         updateCartButton();
@@ -786,7 +816,7 @@ public class MainActivity extends Activity {
             trackAction("top_cart");
             openScreen("cart");
         });
-        LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(52), dp(44));
+        LinearLayout.LayoutParams cartParams = new LinearLayout.LayoutParams(dp(44), dp(44));
         bar.addView(cartButton, cartParams);
         return bar;
     }
@@ -800,27 +830,47 @@ public class MainActivity extends Activity {
                 String label = item.getString("label");
                 String screen = item.optString("screenId", item.optString("screen", ""));
                 boolean selected = screen.equals(navigationScreenForSelection());
-                TextView tab = text(label, 12, selected ? RED : MUTED, selected);
+                TextView tab = text(label, 11, selected ? RED : MUTED, selected);
                 tab.setGravity(Gravity.CENTER);
                 tab.setSingleLine(true);
                 tab.setEllipsize(TextUtils.TruncateAt.END);
                 tab.setFocusable(true);
+                tab.setSelected(selected);
                 tab.setMinHeight(dp(52));
-                tab.setPadding(dp(6), dp(0), dp(6), dp(0));
+                tab.setPadding(dp(4), dp(4), dp(4), dp(3));
+                tab.setCompoundDrawablesWithIntrinsicBounds(0, navigationIconResource(screen), 0, 0);
+                tab.setCompoundDrawablePadding(dp(2));
+                tab.setCompoundDrawableTintList(ColorStateList.valueOf(selected ? RED : MUTED));
                 tab.setContentDescription(selected ? label + "، فعال" : label);
-                tab.setBackground(interactiveBackground(selected ? RED_TINT : SURFACE, 18, selected ? RED : SURFACE, selected ? 1 : 0));
+                tab.setBackground(interactiveBackground(selected ? RED_TINT : SURFACE, 14, selected ? HERO_BORDER : SURFACE, selected ? 1 : 0));
                 attachPressAnimation(tab);
                 tab.setOnClickListener(v -> {
                     trackAction("bottom_navigation", metadata("target", screen));
                     openScreen(screen);
                 });
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
-                params.setMargins(dp(3), dp(0), dp(3), dp(0));
+                params.setMargins(dp(2), dp(0), dp(2), dp(0));
                 nav.addView(tab, params);
             }
         } catch (Exception e) {
             trackError("render_navigation", e);
             Toast.makeText(this, "خطا در نمایش ناوبری", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private int navigationIconResource(String screen) {
+        switch (screen) {
+            case "shop":
+                return R.drawable.ic_store_24;
+            case "services":
+                return R.drawable.ic_service_24;
+            case "events":
+                return R.drawable.ic_events_24;
+            case "account":
+                return R.drawable.ic_account_24;
+            case "home":
+            default:
+                return R.drawable.ic_home_24;
         }
     }
 
@@ -895,68 +945,117 @@ public class MainActivity extends Activity {
     }
 
     private View accountAccessPanel() {
+        if (isLoggedIn()) {
+            return connectedAccountPanel();
+        }
+        return showingRegistrationForm ? registrationPanel() : loginPanel();
+    }
+
+    private LinearLayout accountPanel(String title, String subtitle) {
         LinearLayout card = panel(WHITE);
-        card.addView(text(isLoggedIn() ? "حساب متصل" : "ورود یا ثبت نام", 18, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        card.addView(text(title, 19, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(card, 6);
-        card.addView(text(isLoggedIn()
-                ? "اطلاعات این حساب برای سفارش، رزرو سرویس، پیام‌ها و پیگیری‌ها استفاده می‌شود."
-                : "با ورود، سبد خرید، پیام‌ها و وضعیت‌ها به حساب شما متصل می‌شوند.", 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(card, 12);
+        card.addView(text(subtitle, 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 16);
+        return card;
+    }
+
+    private View loginPanel() {
+        LinearLayout card = accountPanel(
+                "ورود به حساب",
+                "برای دیدن سفارش‌ها، پیام‌ها و وضعیت سرویس با ایمیل خود وارد شوید."
+        );
+
+        EditText email = addTextField(card, "ایمیل", customerEmail, false, 1);
+        addSpace(card, 10);
+        EditText password = addTextField(card, "رمز عبور", "", true, 1);
+        password.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        addSpace(card, 16);
+
+        Button login = button("ورود", true);
+        login.setOnClickListener(v -> loginAccount(email.getText().toString().trim(), password.getText().toString()));
+        card.addView(login, new LinearLayout.LayoutParams(-1, dp(48)));
+        addSpace(card, 8);
+
+        Button register = button("حساب ندارید؟ ساخت حساب", false);
+        register.setOnClickListener(v -> {
+            showingRegistrationForm = true;
+            renderScreen("account", false);
+            scrollToTop();
+        });
+        card.addView(register, new LinearLayout.LayoutParams(-1, dp(48)));
+        return card;
+    }
+
+    private View registrationPanel() {
+        LinearLayout card = accountPanel(
+                "ساخت حساب",
+                "اطلاعات اصلی را وارد کنید؛ شماره تماس و آدرس تحویل را بعداً هم می‌توانید تغییر دهید."
+        );
 
         EditText name = addTextField(card, "نام", customerName, false, 1);
-        addSpace(card, 8);
+        addSpace(card, 10);
         EditText phone = addTextField(card, "شماره تماس", customerPhone, false, 1);
-        addSpace(card, 8);
+        addSpace(card, 10);
         EditText email = addTextField(card, "ایمیل", customerEmail, false, 1);
-        addSpace(card, 8);
+        addSpace(card, 10);
         EditText address = addTextField(card, "آدرس تحویل", customerAddress, false, 2);
-        addSpace(card, 8);
+        addSpace(card, 10);
         EditText password = addTextField(card, "رمز عبور", "", true, 1);
-        addSpace(card, 12);
+        password.setHint("حداقل ۸ کاراکتر");
+        password.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        addSpace(card, 16);
 
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.VERTICAL);
+        Button register = button("ساخت حساب", true);
+        register.setOnClickListener(v -> registerAccount(name, phone, email, address, password));
+        card.addView(register, new LinearLayout.LayoutParams(-1, dp(48)));
+        addSpace(card, 8);
 
-        Button saveLocal = button("ذخیره اطلاعات", false);
-        saveLocal.setOnClickListener(v -> {
-            saveCustomerInputs(name, phone, email, address);
-            Toast.makeText(this, "اطلاعات ذخیره شد", Toast.LENGTH_SHORT).show();
+        Button login = button("قبلاً ثبت‌نام کرده‌اید؟ ورود", false);
+        login.setOnClickListener(v -> {
+            showingRegistrationForm = false;
+            renderScreen("account", false);
+            scrollToTop();
         });
-        actions.addView(saveLocal, new LinearLayout.LayoutParams(-1, dp(44)));
-        addSpace(actions, 8);
+        card.addView(login, new LinearLayout.LayoutParams(-1, dp(48)));
+        return card;
+    }
 
-        if (isLoggedIn()) {
-            Button update = button("به‌روزرسانی حساب", true);
-            update.setOnClickListener(v -> updateAccountProfile(name, phone, email, address));
-            actions.addView(update, new LinearLayout.LayoutParams(-1, dp(44)));
-            addSpace(actions, 8);
+    private View connectedAccountPanel() {
+        LinearLayout card = accountPanel(
+                "حساب متصل",
+                "اطلاعات تماس و تحویل برای سفارش‌ها، رزرو سرویس و پیام‌های شما استفاده می‌شود."
+        );
 
-            Button logout = button("خروج از حساب", false);
-            logout.setTextColor(RED);
-            logout.setOnClickListener(v -> {
-                authToken = "";
-                saveCustomerProfile();
-                cartItems.clear();
-                cartCount = 0;
-                unreadMessageCount = 0;
-                updateCartButton();
-                updateMessageButton();
-                Toast.makeText(this, "از حساب خارج شدید", Toast.LENGTH_SHORT).show();
-                renderScreen("account", false);
-            });
-            actions.addView(logout, new LinearLayout.LayoutParams(-1, dp(44)));
-        } else {
-            Button login = button("ورود", true);
-            login.setOnClickListener(v -> loginAccount(email.getText().toString().trim(), password.getText().toString()));
-            actions.addView(login, new LinearLayout.LayoutParams(-1, dp(44)));
-            addSpace(actions, 8);
+        EditText name = addTextField(card, "نام", customerName, false, 1);
+        addSpace(card, 10);
+        EditText phone = addTextField(card, "شماره تماس", customerPhone, false, 1);
+        addSpace(card, 10);
+        EditText email = addTextField(card, "ایمیل", customerEmail, false, 1);
+        addSpace(card, 10);
+        EditText address = addTextField(card, "آدرس تحویل", customerAddress, false, 2);
+        addSpace(card, 16);
 
-            Button register = button("ثبت نام", false);
-            register.setOnClickListener(v -> registerAccount(name, phone, email, address, password));
-            actions.addView(register, new LinearLayout.LayoutParams(-1, dp(44)));
-        }
+        Button update = button("ذخیره تغییرات", true);
+        update.setOnClickListener(v -> updateAccountProfile(name, phone, email, address));
+        card.addView(update, new LinearLayout.LayoutParams(-1, dp(48)));
+        addSpace(card, 8);
 
-        card.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+        Button logout = button("خروج از حساب", false);
+        logout.setTextColor(RED);
+        logout.setOnClickListener(v -> {
+            authToken = "";
+            saveCustomerProfile();
+            cartItems.clear();
+            cartCount = 0;
+            unreadMessageCount = 0;
+            showingRegistrationForm = false;
+            updateCartButton();
+            updateMessageButton();
+            Toast.makeText(this, "از حساب خارج شدید", Toast.LENGTH_SHORT).show();
+            renderScreen("account", false);
+        });
+        card.addView(logout, new LinearLayout.LayoutParams(-1, dp(48)));
         return card;
     }
 
@@ -971,12 +1070,26 @@ public class MainActivity extends Activity {
         input.setText(value == null ? "" : value);
         input.setTextSize(14);
         input.setTextColor(BLACK);
+        input.setHintTextColor(MUTED);
+        input.setTypeface(bodyTypeface);
         input.setGravity(Gravity.START);
         input.setSingleLine(minLines <= 1);
         input.setMinLines(minLines);
-        input.setBackground(rounded(SURFACE, 8, BORDER, 1));
+        input.setBackground(rounded(SURFACE_ALT, 10, BORDER, 1));
         input.setPadding(dp(12), dp(8), dp(12), dp(8));
-        input.setInputType(password ? (InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD) : InputType.TYPE_CLASS_TEXT);
+        input.setContentDescription(label);
+        input.setImeOptions(password ? EditorInfo.IME_ACTION_DONE : EditorInfo.IME_ACTION_NEXT);
+        if (password) {
+            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        } else if (label.contains("ایمیل")) {
+            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            input.setTextDirection(View.TEXT_DIRECTION_LTR);
+        } else if (label.contains("تماس")) {
+            input.setInputType(InputType.TYPE_CLASS_PHONE);
+            input.setTextDirection(View.TEXT_DIRECTION_LTR);
+        } else {
+            input.setInputType(InputType.TYPE_CLASS_TEXT | (minLines > 1 ? InputType.TYPE_TEXT_FLAG_MULTI_LINE : 0));
+        }
         box.addView(input, new LinearLayout.LayoutParams(-1, minLines > 1 ? dp(84) : dp(48)));
         parent.addView(box, new LinearLayout.LayoutParams(-1, -2));
         return input;
@@ -1288,7 +1401,9 @@ public class MainActivity extends Activity {
                 content.addView(programSections(section));
                 break;
             case "product_list":
-                content.addView(sectionTitle(data.getString("title")));
+                if (!data.optBoolean("hideTitle", false)) {
+                    content.addView(sectionTitle(data.getString("title")));
+                }
                 content.addView(productList(data));
                 break;
             case "service_list":
@@ -1373,23 +1488,23 @@ public class MainActivity extends Activity {
 
     private View bikeShopHero(JSONObject section) throws Exception {
         LinearLayout box = panel(HERO_SURFACE);
-        box.setBackground(rounded(HERO_SURFACE, 12, HERO_BORDER, 1));
-        box.setPadding(dp(18), dp(18), dp(18), dp(18));
+        box.setBackground(rounded(HERO_SURFACE, 14, HERO_BORDER, 1));
+        box.setPadding(dp(16), dp(16), dp(16), dp(16));
 
         String eyebrow = section.optString("eyebrow", "");
         if (!eyebrow.isEmpty()) {
             TextView chip = pillText(eyebrow, 12, RED, RED_TINT, DARK_RED);
-            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(-2, dp(32));
-            chipParams.setMargins(dp(0), dp(0), dp(0), dp(8));
+            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(-2, dp(30));
+            chipParams.setMargins(dp(0), dp(0), dp(0), dp(6));
             box.addView(chip, chipParams);
         }
 
-        TextView title = text(section.getString("title"), 25, BLACK, true);
+        TextView title = text(section.getString("title"), 23, BLACK, true);
         title.setMaxLines(3);
         box.addView(title, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 6);
+        addSpace(box, 4);
 
-        TextView subtitle = text(section.getString("subtitle"), 14, MUTED, false);
+        TextView subtitle = text(section.getString("subtitle"), 13, MUTED, false);
         subtitle.setMaxLines(3);
         subtitle.setEllipsize(TextUtils.TruncateAt.END);
         box.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
@@ -1397,47 +1512,42 @@ public class MainActivity extends Activity {
         addSpace(box, 10);
         ImageView bike = new ImageView(this);
         bike.setImageResource(heroVisualResource(section.optString("visual", "bike")));
+        bike.setContentDescription(section.optString("visualDescription", "تصویر دوچرخه EtokBike"));
         bike.setAdjustViewBounds(true);
         bike.setScaleType(ImageView.ScaleType.FIT_CENTER);
         bike.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
         bike.setPadding(dp(8), dp(8), dp(8), dp(8));
-        box.addView(bike, new LinearLayout.LayoutParams(-1, dp(144)));
 
         String featureTitle = section.optString("featureTitle", "");
-        if (!featureTitle.isEmpty()) {
+        boolean splitShowcase = !featureTitle.isEmpty()
+                && getResources().getConfiguration().screenWidthDp >= 360;
+        if (splitShowcase) {
+            LinearLayout showcase = new LinearLayout(this);
+            showcase.setOrientation(LinearLayout.HORIZONTAL);
+            showcase.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams mediaParams = new LinearLayout.LayoutParams(0, dp(132), 1);
+            mediaParams.setMargins(dp(4), dp(0), dp(0), dp(0));
+            showcase.addView(bike, mediaParams);
+            LinearLayout.LayoutParams featureParams = new LinearLayout.LayoutParams(0, dp(132), 1);
+            featureParams.setMargins(dp(0), dp(0), dp(4), dp(0));
+            showcase.addView(heroFeaturePanel(section), featureParams);
+            box.addView(showcase, new LinearLayout.LayoutParams(-1, -2));
+        } else {
+            box.addView(bike, new LinearLayout.LayoutParams(-1, dp(124)));
+        }
+
+        if (!featureTitle.isEmpty() && !splitShowcase) {
             addSpace(box, 10);
-            LinearLayout feature = new LinearLayout(this);
-            feature.setOrientation(LinearLayout.VERTICAL);
-            feature.setGravity(Gravity.START);
-            feature.setPadding(dp(14), dp(12), dp(14), dp(12));
-            feature.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
-            TextView featureTitleView = text(featureTitle, 15, BLACK, true);
-            featureTitleView.setMaxLines(2);
-            featureTitleView.setEllipsize(TextUtils.TruncateAt.END);
-            feature.addView(featureTitleView, new LinearLayout.LayoutParams(-1, -2));
-            String featureSubtitle = section.optString("featureSubtitle", "");
-            if (!featureSubtitle.isEmpty()) {
-                addSpace(feature, 4);
-                TextView featureSubtitleView = text(featureSubtitle, 12, MUTED, false);
-                featureSubtitleView.setMaxLines(2);
-                featureSubtitleView.setEllipsize(TextUtils.TruncateAt.END);
-                feature.addView(featureSubtitleView, new LinearLayout.LayoutParams(-1, -2));
-            }
-            String featurePrice = section.optString("featurePrice", "");
-            if (!featurePrice.isEmpty()) {
-                addSpace(feature, 5);
-                feature.addView(text(featurePrice, 13, ACCENT, true), new LinearLayout.LayoutParams(-1, -2));
-            }
-            box.addView(feature, new LinearLayout.LayoutParams(-1, -2));
+            box.addView(heroFeaturePanel(section), new LinearLayout.LayoutParams(-1, -2));
         }
 
         JSONArray stats = section.optJSONArray("stats");
         if (stats != null && stats.length() > 0) {
-            addSpace(box, 12);
+            addSpace(box, 10);
             box.addView(heroStats(stats), new LinearLayout.LayoutParams(-1, -2));
         }
 
-        addSpace(box, 12);
+        addSpace(box, 10);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
@@ -1454,9 +1564,9 @@ public class MainActivity extends Activity {
             trackAction("hero_secondary", metadata("target", target));
             openScreen(target);
         });
-        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
-        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
         secondaryParams.setMargins(dp(0), dp(0), dp(4), dp(0));
         actions.addView(primary, primaryParams);
         actions.addView(secondary, secondaryParams);
@@ -1464,34 +1574,83 @@ public class MainActivity extends Activity {
         return box;
     }
 
+    private View heroFeaturePanel(JSONObject section) {
+        LinearLayout feature = new LinearLayout(this);
+        feature.setOrientation(LinearLayout.VERTICAL);
+        feature.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        feature.setPadding(dp(12), dp(10), dp(12), dp(10));
+        feature.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
+
+        TextView title = text(section.optString("featureTitle", ""), 14, BLACK, true);
+        title.setMaxLines(2);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        feature.addView(title, new LinearLayout.LayoutParams(-1, -2));
+
+        String subtitle = section.optString("featureSubtitle", "");
+        if (!subtitle.isEmpty()) {
+            addSpace(feature, 3);
+            TextView subtitleView = text(subtitle, 11, MUTED, false);
+            subtitleView.setMaxLines(2);
+            subtitleView.setEllipsize(TextUtils.TruncateAt.END);
+            feature.addView(subtitleView, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        String price = section.optString("featurePrice", "");
+        if (!price.isEmpty()) {
+            addSpace(feature, 4);
+            TextView priceView = text(price, 12, ACCENT, true);
+            priceView.setMaxLines(1);
+            priceView.setEllipsize(TextUtils.TruncateAt.END);
+            feature.addView(priceView, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return feature;
+    }
+
     private View heroStats(JSONArray stats) throws Exception {
+        if (stats.length() <= 3) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER);
+            for (int i = 0; i < stats.length(); i++) {
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(62), 1);
+                params.setMargins(dp(3), dp(0), dp(3), dp(0));
+                row.addView(heroStat(stats.getJSONObject(i)), params);
+            }
+            return row;
+        }
+
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setHorizontalFadingEdgeEnabled(true);
+        scroll.setFadingEdgeLength(dp(18));
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.START);
         for (int i = 0; i < stats.length(); i++) {
-            JSONObject item = stats.getJSONObject(i);
-            LinearLayout stat = new LinearLayout(this);
-            stat.setOrientation(LinearLayout.VERTICAL);
-            stat.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            stat.setPadding(dp(12), dp(8), dp(12), dp(8));
-            stat.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
-            TextView value = text(item.getString("value"), 14, BLACK, true);
-            value.setSingleLine(true);
-            value.setEllipsize(TextUtils.TruncateAt.END);
-            stat.addView(value, new LinearLayout.LayoutParams(-1, -2));
-            addSpace(stat, 1);
-            TextView label = text(item.getString("label"), 10, MUTED, false);
-            label.setMaxLines(2);
-            label.setEllipsize(TextUtils.TruncateAt.END);
-            stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(126), dp(66));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(116), dp(62));
             params.setMargins(dp(4), dp(2), dp(4), dp(2));
-            row.addView(stat, params);
+            row.addView(heroStat(stats.getJSONObject(i)), params);
         }
         scroll.addView(row);
         return scroll;
+    }
+
+    private View heroStat(JSONObject item) throws Exception {
+        LinearLayout stat = new LinearLayout(this);
+        stat.setOrientation(LinearLayout.VERTICAL);
+        stat.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        stat.setPadding(dp(10), dp(7), dp(10), dp(7));
+        stat.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
+        TextView value = text(item.getString("value"), 13, BLACK, true);
+        value.setSingleLine(true);
+        value.setEllipsize(TextUtils.TruncateAt.END);
+        stat.addView(value, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(stat, 1);
+        TextView label = text(item.getString("label"), 10, MUTED, false);
+        label.setMaxLines(2);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
+        return stat;
     }
 
     private int heroVisualResource(String visual) {
@@ -1918,7 +2077,7 @@ public class MainActivity extends Activity {
         priceRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView price = text(item.optString("price", item.has("priceValue") ? formatToman(item.optInt("priceValue", 0)) : "استعلام قیمت"), 22, RED, true);
         priceRow.addView(price, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView stock = pillText(productAvailabilityLabel(item), 12, SECONDARY, SURFACE_ALT, SECONDARY);
+        TextView stock = productAvailabilityPill(item);
         priceRow.addView(stock, new LinearLayout.LayoutParams(-2, dp(32)));
         panel.addView(priceRow, new LinearLayout.LayoutParams(-1, -2));
 
@@ -1933,11 +2092,16 @@ public class MainActivity extends Activity {
         addSpace(panel, 14);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button add = button(item.has("priceValue") ? "افزودن به سبد" : "افزودن / رزرو", true);
-        add.setOnClickListener(v -> {
-            trackAction("product_detail_add_to_cart", metadata("product", item.optString("id", item.optString("title", ""))));
-            addProductToCart(item);
-        });
+        boolean unavailable = isProductUnavailable(item);
+        Button add = button(unavailable ? "ناموجود" : (item.has("priceValue") ? "افزودن به سبد" : "افزودن / رزرو"), true);
+        if (unavailable) {
+            disableProductAction(add);
+        } else {
+            add.setOnClickListener(v -> {
+                trackAction("product_detail_add_to_cart", metadata("product", item.optString("id", item.optString("title", ""))));
+                addProductToCart(item);
+            });
+        }
         Button consult = button("مشاوره خرید", false);
         consult.setOnClickListener(v -> {
             trackAction("product_detail_consult", metadata("product", item.optString("id", item.optString("title", ""))));
@@ -1959,7 +2123,7 @@ public class MainActivity extends Activity {
         addSpace(panel, 10);
 
         JSONArray facts = new JSONArray();
-        facts.put(productFact("دسته‌بندی", productCategoryLabel(item.optString("category", ""))));
+        facts.put(productFact("دسته‌بندی", productCategoryLabel(item)));
         facts.put(productFact("وضعیت", productAvailabilityLabel(item)));
         facts.put(productFact("تحویل", item.optString("deliveryLabel", "تنظیم و تست قبل تحویل")));
         facts.put(productFact("پشتیبانی", item.optString("supportLabel", "مشاوره سایز و مسیر")));
@@ -2019,6 +2183,11 @@ public class MainActivity extends Activity {
         return category == null || category.trim().isEmpty() ? "محصول" : category;
     }
 
+    private String productCategoryLabel(JSONObject item) {
+        String label = item.optString("categoryLabel", "").trim();
+        return label.isEmpty() ? productCategoryLabel(item.optString("category", "")) : label;
+    }
+
     private String productCategoryVisual(String category) {
         if ("parts".equals(category)) return "PART";
         if ("accessories".equals(category)) return "GEAR";
@@ -2043,9 +2212,36 @@ public class MainActivity extends Activity {
                 return "موجودی محدود";
             case "orderable":
                 return "قابل سفارش";
+            case "out_of_stock":
+                return "ناموجود";
             default:
                 return "استعلام موجودی";
         }
+    }
+
+    private boolean isProductUnavailable(JSONObject item) {
+        return "out_of_stock".equals(item.optString("availability", ""));
+    }
+
+    private TextView productAvailabilityPill(JSONObject item) {
+        String availability = item.optString("availability", "");
+        if ("in_stock".equals(availability)) {
+            return pillText(productAvailabilityLabel(item), 12, SUCCESS, SUCCESS_SOFT, SUCCESS);
+        }
+        if ("low_stock".equals(availability)) {
+            return pillText(productAvailabilityLabel(item), 12, WARNING, WARNING_SOFT, WARNING);
+        }
+        if ("orderable".equals(availability)) {
+            return pillText(productAvailabilityLabel(item), 12, RED, RED_TINT, RED);
+        }
+        return pillText(productAvailabilityLabel(item), 12, MUTED, NEUTRAL_SOFT, BORDER);
+    }
+
+    private void disableProductAction(Button button) {
+        button.setEnabled(false);
+        button.setTextColor(MUTED);
+        button.setBackground(rounded(NEUTRAL_SOFT, 10, BORDER, 1));
+        button.setContentDescription("ناموجود");
     }
 
     private boolean isFutureProgram(JSONObject item) {
@@ -2398,6 +2594,8 @@ public class MainActivity extends Activity {
         problem.setHint(data.optString("problemPlaceholder", "توضیح مشکل"));
         problem.setTextSize(14);
         problem.setTextColor(BLACK);
+        problem.setHintTextColor(MUTED);
+        problem.setTypeface(bodyTypeface);
         problem.setGravity(Gravity.START);
         problem.setMinLines(3);
         problem.setBackground(rounded(SURFACE, 8, BORDER, 1));
@@ -2607,6 +2805,8 @@ public class MainActivity extends Activity {
         EditText input = new EditText(this);
         input.setTextSize(14);
         input.setTextColor(BLACK);
+        input.setHintTextColor(MUTED);
+        input.setTypeface(bodyTypeface);
         input.setHint(department.optString("placeholder", "پیام خود را بنویسید"));
         input.setGravity(Gravity.START);
         input.setMinLines(3);
@@ -2674,13 +2874,15 @@ public class MainActivity extends Activity {
     }
 
     private View productList(JSONObject section) throws Exception {
-        String key = currentScreen + ":" + section.optString("title", "products");
-        String selectedCategory = selectedCategories.containsKey(key)
-                ? selectedCategories.get(key)
-                : section.optString("defaultCategory", "");
+        String key = currentScreen + ":" + section.optString("id", section.optString("title", "products"));
+        String selectedCategory = selectedProductCategory(section, key);
         Map<String, String> filters = currentFilterValues(section, key);
         String query = searchQueries.containsKey(key) ? searchQueries.get(key) : "";
-        List<JSONObject> items = filteredProducts(section.getJSONArray("items"), selectedCategory, filters, query);
+        JSONArray categories = section.optJSONArray("categories");
+        if (categories == null) {
+            categories = new JSONArray();
+        }
+        List<JSONObject> items = filteredProducts(section.getJSONArray("items"), categories, selectedCategory, filters, query);
         int initialItems = section.optInt("initialItems", 4);
         int pageSize = section.optInt("pageSize", initialItems);
         Integer storedVisible = visibleItemCounts.get(key);
@@ -2689,25 +2891,13 @@ public class MainActivity extends Activity {
 
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.addView(searchPanel(section, key, query), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(list, 10);
-        if (section.has("categories")) {
-            list.addView(categoryTabs(section, key, selectedCategory), new LinearLayout.LayoutParams(-1, -2));
-            addSpace(list, 10);
-        }
-        if (section.has("filters")) {
-            list.addView(filtersPanel(section, key, filters), new LinearLayout.LayoutParams(-1, -2));
-            addSpace(list, 14);
-        }
-        for (int i = 0; i < visible; i++) {
-            View card = productCard(items.get(i), true);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-            params.setMargins(dp(0), dp(6), dp(0), dp(8));
-            list.addView(card, params);
-        }
+        list.addView(shopControlsPanel(section, key, categories, selectedCategory, filters, query, items.size()), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(list, 14);
 
         if (visible == 0) {
-            list.addView(infoText(section.optString("emptyStateText", "")));
+            list.addView(emptyProductsPanel(section, key));
+        } else {
+            addProductCards(list, items, visible);
         }
 
         if (visible < items.size()) {
@@ -2726,12 +2916,42 @@ public class MainActivity extends Activity {
         return list;
     }
 
-    private View searchPanel(JSONObject section, String key, String query) {
-        LinearLayout box = panel(SURFACE);
-        box.setPadding(dp(14), dp(14), dp(14), dp(14));
-        box.addView(text(section.optString("searchLabel", "جستجو"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 6);
+    private String selectedProductCategory(JSONObject section, String key) {
+        String selected = selectedCategories.containsKey(key)
+                ? selectedCategories.get(key)
+                : section.optString("defaultCategory", "");
+        return "all".equals(selected) ? "" : selected;
+    }
 
+    private View shopControlsPanel(JSONObject section, String key, JSONArray categories, String selectedCategory,
+                                   Map<String, String> filtersState, String query, int resultCount) throws Exception {
+        LinearLayout panel = panel(SURFACE);
+        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        panel.addView(compactSearchRow(section, key, query), new LinearLayout.LayoutParams(-1, -2));
+
+        addSpace(panel, 10);
+        panel.addView(shopSummary(section, categories, selectedCategory, filtersState, query, resultCount), new LinearLayout.LayoutParams(-1, -2));
+
+        View quickFilters = quickFiltersRow(section, key, filtersState);
+        if (quickFilters != null) {
+            addSpace(panel, 10);
+            panel.addView(quickFilters, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        if (categories.length() > 0) {
+            addSpace(panel, 10);
+            panel.addView(categoryControls(section, key, categories, selectedCategory), new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        View advancedFilters = advancedFiltersPanel(section, key, filtersState, query);
+        if (advancedFilters != null) {
+            addSpace(panel, 10);
+            panel.addView(advancedFilters, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return panel;
+    }
+
+    private View compactSearchRow(JSONObject section, String key, String query) {
         LinearLayout searchRow = new LinearLayout(this);
         searchRow.setOrientation(LinearLayout.HORIZONTAL);
         searchRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -2741,10 +2961,12 @@ public class MainActivity extends Activity {
         input.setHint(section.optString("searchPlaceholder", "نام محصول، قطعه یا لوازم را بنویسید"));
         input.setTextSize(14);
         input.setTextColor(BLACK);
+        input.setHintTextColor(MUTED);
+        input.setTypeface(bodyTypeface);
         input.setSingleLine(true);
         input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
         input.setGravity(Gravity.START);
-        input.setBackground(rounded(SURFACE_ALT, 10, BORDER, 1));
+        input.setBackground(rounded(SURFACE_ALT, 12, BORDER, 1));
         input.setPadding(dp(12), dp(0), dp(12), dp(0));
         input.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -2755,14 +2977,520 @@ public class MainActivity extends Activity {
         });
         searchRow.addView(input, new LinearLayout.LayoutParams(0, dp(48), 1));
 
-        Button apply = button("اعمال", false);
+        Button apply = button(section.optString("searchActionLabel", "جستجو"), true);
         apply.setOnClickListener(v -> applyProductSearch(key, input.getText().toString().trim()));
-        LinearLayout.LayoutParams applyParams = new LinearLayout.LayoutParams(dp(92), dp(48));
+        LinearLayout.LayoutParams applyParams = new LinearLayout.LayoutParams(dp(96), dp(48));
         applyParams.setMargins(dp(0), dp(0), dp(8), dp(0));
         searchRow.addView(apply, applyParams);
+        return searchRow;
+    }
 
-        box.addView(searchRow, new LinearLayout.LayoutParams(-1, -2));
+    private View shopSummary(JSONObject section, JSONArray categories, String selectedCategory,
+                             Map<String, String> filtersState, String query, int resultCount) throws Exception {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        addShopSummaryPill(row, persianDigits(resultCount) + " محصول", BLACK, SURFACE_ALT, BORDER);
+        if (query != null && !query.trim().isEmpty()) {
+            addShopSummaryPill(row, "جستجو: " + query, RED, RED_TINT, RED);
+        }
+        String categoryPath = selectedCategoryPath(categories, selectedCategory);
+        if (!categoryPath.isEmpty()) {
+            addShopSummaryPill(row, categoryPath, RED, RED_TINT, RED);
+        }
+        int activeControls = activeProductControlCount(section, filtersState, query);
+        if (activeControls > 0) {
+            addShopSummaryPill(row, persianDigits(activeControls) + " فیلتر فعال", RED, RED_TINT, RED);
+        }
+        scroll.addView(row);
+        return scroll;
+    }
+
+    private void addShopSummaryPill(LinearLayout parent, String label, int textColor, int fillColor, int strokeColor) {
+        TextView pill = pillText(label, 12, textColor, fillColor, strokeColor);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(32));
+        params.setMargins(dp(3), dp(0), dp(3), dp(0));
+        parent.addView(pill, params);
+    }
+
+    private View quickFiltersRow(JSONObject section, String key, Map<String, String> filtersState) throws Exception {
+        JSONArray filters = section.optJSONArray("filters");
+        if (filters == null) {
+            return null;
+        }
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        int added = 0;
+        for (int i = 0; i < filters.length(); i++) {
+            JSONObject filter = filters.getJSONObject(i);
+            if (!isQuickFilter(section, filter) || "number".equals(filter.optString("type", ""))) {
+                continue;
+            }
+
+            String id = filter.getString("id");
+            String value = filtersState.containsKey(id) ? filtersState.get(id) : filter.optString("default", "all");
+            TextView control = filterChoiceControl(filter, key, value);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1);
+            params.setMargins(added == 0 ? dp(0) : dp(4), dp(0), added == 0 ? dp(4) : dp(0), dp(0));
+            row.addView(control, params);
+            added++;
+        }
+        return added == 0 ? null : row;
+    }
+
+    private TextView filterChoiceControl(JSONObject filter, String key, String selectedValue) throws Exception {
+        String value = selectedValue == null ? filter.optString("default", "all") : selectedValue;
+        boolean active = !isDefaultFilter(filter, value);
+        String label = filter.getString("label") + ": " + filterOptionLabel(filter, value);
+        TextView control = text(label, 12, active ? RED : BLACK, true);
+        control.setGravity(Gravity.CENTER);
+        control.setSingleLine(true);
+        control.setEllipsize(TextUtils.TruncateAt.END);
+        control.setPadding(dp(10), dp(0), dp(10), dp(0));
+        control.setContentDescription(label);
+        control.setFocusable(true);
+        control.setBackground(interactiveBackground(active ? RED_TINT : SURFACE, 20, active ? RED : BORDER, 1));
+        attachPressAnimation(control);
+        control.setOnClickListener(v -> showProductFilterChoices(filter, key, value));
+        return control;
+    }
+
+    private void showProductFilterChoices(JSONObject filter, String key, String selectedValue) {
+        try {
+            JSONArray options = filter.getJSONArray("options");
+            List<String> labels = new ArrayList<>();
+            List<String> ids = new ArrayList<>();
+            int selectedIndex = 0;
+            for (int i = 0; i < options.length(); i++) {
+                JSONObject option = options.getJSONObject(i);
+                String id = option.getString("id");
+                ids.add(id);
+                labels.add(option.getString("label"));
+                if (id.equals(selectedValue)) {
+                    selectedIndex = i;
+                }
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle(filter.getString("label"))
+                    .setSingleChoiceItems(labels.toArray(new String[0]), selectedIndex, (dialog, which) -> {
+                        try {
+                            applyProductFilter(filter, key, ids.get(which), true);
+                        } catch (Exception e) {
+                            trackError("product_filter", e);
+                            Toast.makeText(MainActivity.this, "خطا در اعمال فیلتر", Toast.LENGTH_SHORT).show();
+                        }
+                        dialog.dismiss();
+                    })
+                    .show();
+        } catch (Exception e) {
+            trackError("product_filter_menu", e);
+            Toast.makeText(this, "خطا در نمایش فیلتر", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean isQuickFilter(JSONObject section, JSONObject filter) {
+        String id = filter.optString("id", "");
+        JSONArray quickIds = section.optJSONArray("quickFilterIds");
+        if (quickIds != null) {
+            for (int i = 0; i < quickIds.length(); i++) {
+                if (id.equals(quickIds.optString(i))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return "availability".equals(id) || "sort".equals(id);
+    }
+
+    private boolean applyProductFilter(JSONObject filter, String key, String nextValue, boolean redraw) throws Exception {
+        String id = filter.getString("id");
+        String stateKey = key + ":" + id;
+        String defaultValue = filter.optString("default", "all");
+        String next = nextValue == null ? "" : nextValue.trim();
+        String previous = selectedFilters.containsKey(stateKey) ? selectedFilters.get(stateKey) : defaultValue;
+        if (next.equals(previous)) {
+            return false;
+        }
+
+        if (isDefaultFilter(filter, next)) {
+            selectedFilters.remove(stateKey);
+            trackAction("product_filter_reset", metadata("filter", id));
+        } else {
+            selectedFilters.put(stateKey, next);
+            trackAction("product_filter", metadata(id, next));
+        }
+        visibleItemCounts.remove(key);
+        if (redraw) {
+            renderScreen(currentScreen);
+        }
+        return true;
+    }
+
+    private View categoryControls(JSONObject section, String key, JSONArray categories, String selectedCategory) throws Exception {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label = text(section.optString("categoryLabel", "دسته‌بندی‌ها"), 13, MUTED, false);
+        header.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+
+        boolean expanded = Boolean.TRUE.equals(expandedCategorySections.get(key));
+        int rootCount = rootCategoryCount(categories);
+        String menuLabel = expanded
+                ? "بستن دسته‌بندی‌ها"
+                : section.optString("categoryMenuLabel", "دسته‌بندی‌ها") + " (" + persianDigits(rootCount) + ")";
+        TextView menu = text(menuLabel, 12, RED, true);
+        menu.setGravity(Gravity.CENTER);
+        menu.setSingleLine(true);
+        menu.setPadding(dp(12), dp(0), dp(12), dp(0));
+        menu.setFocusable(true);
+        menu.setBackground(interactiveBackground(RED_TINT, 18, RED, 1));
+        attachPressAnimation(menu);
+        menu.setOnClickListener(v -> {
+            expandedCategorySections.put(key, !expanded);
+            trackAction(expanded ? "product_categories_collapse" : "product_categories_expand");
+            renderScreen(currentScreen);
+        });
+        header.addView(menu, new LinearLayout.LayoutParams(-2, dp(36)));
+        wrap.addView(header, new LinearLayout.LayoutParams(-1, -2));
+
+        addSpace(wrap, 6);
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout chips = new LinearLayout(this);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        chips.addView(categoryChoiceChip(section.optString("allCategoriesLabel", "همه محصولات"), "", selectedCategory, key), categoryChipParams());
+        for (int i = 0; i < categories.length(); i++) {
+            JSONObject category = categories.getJSONObject(i);
+            if (!isRootCategory(category)) {
+                continue;
+            }
+            chips.addView(categoryChoiceChip(categoryLabelWithCount(category), category.getString("id"), selectedCategory, key), categoryChipParams());
+        }
+        scroll.addView(chips);
+        wrap.addView(scroll, new LinearLayout.LayoutParams(-1, -2));
+
+        if (expanded) {
+            addSpace(wrap, 8);
+            wrap.addView(categoryPicker(categories, section, key, selectedCategory), new LinearLayout.LayoutParams(-1, -2));
+        }
+        return wrap;
+    }
+
+    private LinearLayout.LayoutParams categoryChipParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(40));
+        params.setMargins(dp(3), dp(0), dp(3), dp(0));
+        return params;
+    }
+
+    private TextView categoryChoiceChip(String label, String categoryId, String selectedCategory, String key) {
+        boolean active = categoryId.equals(selectedCategory);
+        TextView chip = text(label, 13, active ? WHITE : BLACK, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setSingleLine(true);
+        chip.setEllipsize(TextUtils.TruncateAt.END);
+        chip.setPadding(dp(14), dp(0), dp(14), dp(0));
+        chip.setContentDescription(active ? label + "، فعال" : label);
+        chip.setFocusable(true);
+        chip.setBackground(interactiveBackground(active ? RED : SURFACE, 20, active ? RED : BORDER, 1));
+        attachPressAnimation(chip);
+        chip.setOnClickListener(v -> selectProductCategory(key, categoryId, selectedCategory));
+        return chip;
+    }
+
+    private View categoryPicker(JSONArray categories, JSONObject section, String key, String selectedCategory) throws Exception {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(10), dp(10), dp(10), dp(10));
+        panel.setBackground(rounded(SURFACE_ALT, 12, BORDER, 1));
+        panel.addView(text("همه دسته‌بندی‌ها", 13, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(panel, 6);
+        panel.addView(categoryPickerRow(section.optString("allCategoriesLabel", "همه محصولات"), "", 0, selectedCategory, key), new LinearLayout.LayoutParams(-1, dp(40)));
+
+        for (int i = 0; i < categories.length(); i++) {
+            JSONObject category = categories.getJSONObject(i);
+            int depth = categoryDepth(categories, category);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(40));
+            params.setMargins(dp(0), dp(3), dp(0), dp(0));
+            panel.addView(categoryPickerRow(categoryLabelWithCount(category), category.getString("id"), depth, selectedCategory, key), params);
+        }
+        return panel;
+    }
+
+    private TextView categoryPickerRow(String label, String categoryId, int depth, String selectedCategory, String key) {
+        boolean active = categoryId.equals(selectedCategory);
+        TextView row = text(label, 13, active ? WHITE : BLACK, true);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setSingleLine(true);
+        row.setEllipsize(TextUtils.TruncateAt.END);
+        int inset = dp(12 + Math.min(depth, 3) * 14);
+        row.setPadding(inset, dp(0), dp(12), dp(0));
+        row.setFocusable(true);
+        row.setBackground(interactiveBackground(active ? RED : SURFACE, 10, active ? RED : BORDER, 1));
+        attachPressAnimation(row);
+        row.setOnClickListener(v -> selectProductCategory(key, categoryId, selectedCategory));
+        return row;
+    }
+
+    private void selectProductCategory(String key, String categoryId, String selectedCategory) {
+        if (categoryId.equals(selectedCategory)) {
+            return;
+        }
+        trackAction("product_category_filter", metadata("category", categoryId.isEmpty() ? "all" : categoryId));
+        if (categoryId.isEmpty()) {
+            selectedCategories.remove(key);
+        } else {
+            selectedCategories.put(key, categoryId);
+        }
+        expandedCategorySections.put(key, false);
+        visibleItemCounts.remove(key);
+        renderScreen(currentScreen);
+    }
+
+    private boolean isRootCategory(JSONObject category) {
+        String parentId = category.optString("parentId", "").trim();
+        return parentId.isEmpty() || category.optInt("depth", 0) == 0;
+    }
+
+    private int rootCategoryCount(JSONArray categories) {
+        int count = 0;
+        for (int i = 0; i < categories.length(); i++) {
+            JSONObject category = categories.optJSONObject(i);
+            if (category != null && isRootCategory(category)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String categoryLabelWithCount(JSONObject category) {
+        String label = category.optString("label", category.optString("treeLabel", ""));
+        if (!category.has("productCount")) {
+            return label;
+        }
+        return label + " (" + persianDigits(category.optInt("productCount", 0)) + ")";
+    }
+
+    private int categoryDepth(JSONArray categories, JSONObject category) {
+        if (category.has("depth")) {
+            return Math.max(0, category.optInt("depth", 0));
+        }
+        int depth = 0;
+        String parentId = category.optString("parentId", "").trim();
+        while (!parentId.isEmpty() && depth < categories.length()) {
+            depth++;
+            JSONObject parent = findCategory(categories, parentId);
+            parentId = parent == null ? "" : parent.optString("parentId", "").trim();
+        }
+        return depth;
+    }
+
+    private String selectedCategoryPath(JSONArray categories, String selectedCategory) {
+        if (selectedCategory == null || selectedCategory.trim().isEmpty()) {
+            return "";
+        }
+        List<String> labels = new ArrayList<>();
+        String current = selectedCategory;
+        int safety = 0;
+        while (!current.isEmpty() && safety++ < categories.length()) {
+            JSONObject category = findCategory(categories, current);
+            if (category == null) {
+                break;
+            }
+            labels.add(0, category.optString("label", current));
+            current = category.optString("parentId", "").trim();
+        }
+        return labels.isEmpty() ? "" : "دسته: " + TextUtils.join(" / ", labels);
+    }
+
+    private View advancedFiltersPanel(JSONObject section, String key, Map<String, String> filtersState, String query) throws Exception {
+        JSONArray filters = section.optJSONArray("filters");
+        if (filters == null) {
+            return null;
+        }
+        boolean hasAdvanced = false;
+        for (int i = 0; i < filters.length(); i++) {
+            if (!isQuickFilter(section, filters.getJSONObject(i))) {
+                hasAdvanced = true;
+                break;
+            }
+        }
+        if (!hasAdvanced) {
+            return null;
+        }
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(10), dp(10), dp(10), dp(10));
+        box.setBackground(rounded(SURFACE_ALT, 12, BORDER, 1));
+        boolean expanded = Boolean.TRUE.equals(expandedFilterSections.get(key));
+        int activeControls = activeProductControlCount(section, filtersState, query);
+        String label = expanded
+                ? section.optString("filtersExpandedLabel", "بستن فیلترها")
+                : section.optString("filtersCollapsedLabel", section.optString("filtersTitle", "فیلترهای بیشتر"));
+        if (activeControls > 0) {
+            label = label + " (" + persianDigits(activeControls) + ")";
+        }
+        TextView toggle = text(label, 13, activeControls > 0 ? RED : BLACK, true);
+        toggle.setGravity(Gravity.CENTER);
+        toggle.setSingleLine(true);
+        toggle.setPadding(dp(12), dp(0), dp(12), dp(0));
+        toggle.setFocusable(true);
+        toggle.setBackground(interactiveBackground(SURFACE, 10, activeControls > 0 ? RED : BORDER, 1));
+        attachPressAnimation(toggle);
+        toggle.setOnClickListener(v -> {
+            expandedFilterSections.put(key, !expanded);
+            trackAction(expanded ? "product_filters_collapse" : "product_filters_expand");
+            renderScreen(currentScreen);
+        });
+        box.addView(toggle, new LinearLayout.LayoutParams(-1, dp(42)));
+        if (!expanded) {
+            return box;
+        }
+
+        List<JSONObject> numberFilters = new ArrayList<>();
+        List<EditText> numberInputs = new ArrayList<>();
+        for (int i = 0; i < filters.length(); i++) {
+            JSONObject filter = filters.getJSONObject(i);
+            if (isQuickFilter(section, filter)) {
+                continue;
+            }
+            addSpace(box, 10);
+            if ("number".equals(filter.optString("type", ""))) {
+                numberFilters.add(filter);
+                EditText input = numberFilterInput(filter, filtersState.get(filter.getString("id")));
+                numberInputs.add(input);
+                box.addView(input, new LinearLayout.LayoutParams(-1, dp(46)));
+            } else {
+                box.addView(filterDropdown(filter, key, filtersState.get(filter.getString("id"))), new LinearLayout.LayoutParams(-1, -2));
+            }
+        }
+
+        addSpace(box, 10);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button apply = button(section.optString("applyFiltersLabel", "اعمال فیلتر"), true);
+        apply.setOnClickListener(v -> {
+            try {
+                boolean changed = false;
+                for (int i = 0; i < numberFilters.size(); i++) {
+                    changed |= applyProductFilter(numberFilters.get(i), key, numberInputs.get(i).getText().toString(), false);
+                }
+                if (changed) {
+                    renderScreen(currentScreen);
+                }
+            } catch (Exception e) {
+                trackError("product_advanced_filters", e);
+                Toast.makeText(this, "خطا در اعمال فیلتر", Toast.LENGTH_SHORT).show();
+            }
+        });
+        actions.addView(apply, new LinearLayout.LayoutParams(0, dp(44), 1));
+        Button reset = button(section.optString("resetFiltersLabel", "حذف فیلترها"), false);
+        reset.setOnClickListener(v -> clearProductControls(section, key));
+        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(0, dp(44), 1);
+        resetParams.setMargins(dp(4), dp(0), dp(0), dp(0));
+        actions.addView(reset, resetParams);
+        box.addView(actions, new LinearLayout.LayoutParams(-1, -2));
         return box;
+    }
+
+    private EditText numberFilterInput(JSONObject filter, String selectedValue) throws Exception {
+        EditText input = new EditText(this);
+        input.setText(selectedValue == null ? filter.optString("default", "") : selectedValue);
+        input.setHint(filter.getString("label") + " - " + filter.optString("placeholder", ""));
+        input.setTextSize(14);
+        input.setTextColor(BLACK);
+        input.setHintTextColor(MUTED);
+        input.setTypeface(bodyTypeface);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setGravity(Gravity.START);
+        input.setPadding(dp(12), dp(0), dp(12), dp(0));
+        input.setBackground(rounded(SURFACE, 10, BORDER, 1));
+        return input;
+    }
+
+    private void clearProductControls(JSONObject section, String key) {
+        try {
+            JSONArray filters = section.optJSONArray("filters");
+            if (filters != null) {
+                for (int i = 0; i < filters.length(); i++) {
+                    selectedFilters.remove(key + ":" + filters.getJSONObject(i).getString("id"));
+                }
+            }
+            searchQueries.remove(key);
+            selectedCategories.remove(key);
+            visibleItemCounts.remove(key);
+            expandedFilterSections.put(key, false);
+            expandedCategorySections.put(key, false);
+            trackAction("product_filters_reset");
+            renderScreen(currentScreen);
+        } catch (Exception e) {
+            trackError("product_filters_reset", e);
+            Toast.makeText(this, "خطا در حذف فیلترها", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private View emptyProductsPanel(JSONObject section, String key) {
+        LinearLayout card = panel(SURFACE);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView eyebrow = text("نتیجه‌ای پیدا نشد", 13, RED, true);
+        eyebrow.setGravity(Gravity.CENTER);
+        card.addView(eyebrow, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        TextView title = text(section.optString("emptyStateTitle", "محصولی با این فیلترها نداریم"), 19, BLACK, true);
+        title.setGravity(Gravity.CENTER);
+        card.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 8);
+        TextView body = text(section.optString("emptyStateDescription", section.optString("emptyStateText", "")), 13, MUTED, false);
+        body.setGravity(Gravity.CENTER);
+        body.setMaxLines(3);
+        card.addView(body, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 14);
+        Button reset = button(section.optString("resetFiltersLabel", "حذف فیلترها"), true);
+        reset.setOnClickListener(v -> clearProductControls(section, key));
+        card.addView(reset, new LinearLayout.LayoutParams(-1, dp(44)));
+        addSpace(card, 8);
+        Button message = button(section.optString("emptyStateMessageLabel", "ارسال پیام"), false);
+        message.setOnClickListener(v -> openScreen("messages"));
+        card.addView(message, new LinearLayout.LayoutParams(-1, dp(44)));
+        return card;
+    }
+
+    private void addProductCards(LinearLayout list, List<JSONObject> items, int visible) throws Exception {
+        if (!isWideShopLayout()) {
+            for (int i = 0; i < visible; i++) {
+                View card = productCard(items.get(i), true);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+                params.setMargins(dp(0), dp(4), dp(0), dp(8));
+                list.addView(card, params);
+            }
+            return;
+        }
+
+        for (int i = 0; i < visible; i += 2) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int column = 0; column < 2; column++) {
+                int index = i + column;
+                View child = index < visible ? productCard(items.get(index), true) : new View(this);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+                params.setMargins(column == 0 ? dp(0) : dp(4), dp(4), column == 0 ? dp(4) : dp(0), dp(8));
+                row.addView(child, params);
+            }
+            list.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+    }
+
+    private boolean isWideShopLayout() {
+        return getResources().getConfiguration().screenWidthDp >= 600;
     }
 
     private void applyProductSearch(String key, String value) {
@@ -2772,19 +3500,63 @@ public class MainActivity extends Activity {
         renderScreen(currentScreen);
     }
 
-    private List<JSONObject> filteredProducts(JSONArray source, String selectedCategory, Map<String, String> filters, String query) throws Exception {
+    private List<JSONObject> filteredProducts(JSONArray source, JSONArray categories, String selectedCategory,
+                                              Map<String, String> filters, String query) throws Exception {
         List<JSONObject> result = new ArrayList<>();
         String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         for (int i = 0; i < source.length(); i++) {
             JSONObject item = source.getJSONObject(i);
             String searchable = (item.optString("title", "") + " " + item.optString("subtitle", "") + " " + item.optString("description", "")).toLowerCase(Locale.ROOT);
             boolean matchesSearch = normalizedQuery.isEmpty() || searchable.contains(normalizedQuery);
-            if ((selectedCategory.isEmpty() || selectedCategory.equals(item.optString("category", ""))) && matchesFilters(item, filters) && matchesSearch) {
+            if (matchesProductCategory(item, categories, selectedCategory) && matchesFilters(item, filters) && matchesSearch) {
                 result.add(item);
             }
         }
         sortProducts(result, filters.get("sort"));
         return result;
+    }
+
+    private boolean matchesProductCategory(JSONObject item, JSONArray categories, String selectedCategory) {
+        if (selectedCategory == null || selectedCategory.trim().isEmpty()) {
+            return true;
+        }
+        JSONArray path = item.optJSONArray("categoryPath");
+        if (path != null) {
+            for (int i = 0; i < path.length(); i++) {
+                if (selectedCategory.equals(path.optString(i))) {
+                    return true;
+                }
+            }
+        }
+
+        String itemCategory = item.optString("category", "");
+        if (selectedCategory.equals(itemCategory)) {
+            return true;
+        }
+        return isCategoryDescendant(categories, itemCategory, selectedCategory);
+    }
+
+    private boolean isCategoryDescendant(JSONArray categories, String categoryId, String ancestorId) {
+        String current = categoryId == null ? "" : categoryId;
+        int safety = 0;
+        while (!current.isEmpty() && safety++ < categories.length()) {
+            if (ancestorId.equals(current)) {
+                return true;
+            }
+            JSONObject category = findCategory(categories, current);
+            current = category == null ? "" : category.optString("parentId", "").trim();
+        }
+        return false;
+    }
+
+    private JSONObject findCategory(JSONArray categories, String id) {
+        for (int i = 0; i < categories.length(); i++) {
+            JSONObject category = categories.optJSONObject(i);
+            if (category != null && id.equals(category.optString("id", ""))) {
+                return category;
+            }
+        }
+        return null;
     }
 
     private boolean matchesFilters(JSONObject item, Map<String, String> filters) {
@@ -2803,14 +3575,112 @@ public class MainActivity extends Activity {
         int price = item.optInt("priceValue", 0);
         switch (priceBand) {
             case "under_2m":
-                return price < 2000000;
+                if (price >= 2000000) return false;
+                break;
             case "2m_20m":
-                return price >= 2000000 && price <= 20000000;
+                if (price < 2000000 || price > 20000000) return false;
+                break;
             case "over_20m":
-                return price > 20000000;
+                if (price <= 20000000) return false;
+                break;
             default:
-                return true;
+                break;
         }
+
+        int maxPrice = numberFilterValue(filters.get("maxPrice"));
+        Map<String, String> featureFilters = new HashMap<>();
+        for (Map.Entry<String, String> entry : filters.entrySet()) {
+            if (entry.getKey().startsWith("feature:") && entry.getValue() != null && !entry.getValue().trim().isEmpty()) {
+                featureFilters.put(entry.getKey().substring("feature:".length()), entry.getValue());
+            }
+        }
+
+        if (!featureFilters.isEmpty()) {
+            return matchesVariantFilters(item, featureFilters, maxPrice);
+        }
+        return maxPrice <= 0 || matchesAnyPrice(item, maxPrice);
+    }
+
+    private int numberFilterValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return 0;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char character = value.charAt(i);
+            if (character >= '0' && character <= '9') {
+                digits.append(character);
+            } else if (character >= '۰' && character <= '۹') {
+                digits.append((char) ('0' + (character - '۰')));
+            } else if (character >= '٠' && character <= '٩') {
+                digits.append((char) ('0' + (character - '٠')));
+            }
+        }
+        try {
+            return digits.length() == 0 ? 0 : Integer.parseInt(digits.toString());
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private boolean matchesAnyPrice(JSONObject item, int maxPrice) {
+        if (item.optInt("priceValue", 0) <= maxPrice) {
+            return true;
+        }
+        JSONArray variants = item.optJSONArray("variants");
+        if (variants == null) {
+            return false;
+        }
+        for (int i = 0; i < variants.length(); i++) {
+            JSONObject variant = variants.optJSONObject(i);
+            if (variant != null && variant.optInt("priceValue", Integer.MAX_VALUE) <= maxPrice) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesVariantFilters(JSONObject item, Map<String, String> featureFilters, int maxPrice) {
+        JSONArray variants = item.optJSONArray("variants");
+        if (variants == null) {
+            return false;
+        }
+        for (int i = 0; i < variants.length(); i++) {
+            JSONObject variant = variants.optJSONObject(i);
+            if (variant == null || (maxPrice > 0 && variant.optInt("priceValue", Integer.MAX_VALUE) > maxPrice)) {
+                continue;
+            }
+            boolean matches = true;
+            for (Map.Entry<String, String> entry : featureFilters.entrySet()) {
+                if (!entry.getValue().equals(variantFeatureValue(variant, entry.getKey()))) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String variantFeatureValue(JSONObject variant, String key) {
+        JSONObject options = variant.optJSONObject("options");
+        if (options == null) {
+            return "";
+        }
+        Object direct = options.opt(key);
+        if (direct != null && direct != JSONObject.NULL && !(direct instanceof JSONObject) && !(direct instanceof JSONArray)) {
+            return String.valueOf(direct);
+        }
+        JSONObject attributes = options.optJSONObject("attributes");
+        if (attributes == null) {
+            return "";
+        }
+        Object attribute = attributes.opt(key);
+        return attribute == null || attribute == JSONObject.NULL || attribute instanceof JSONObject || attribute instanceof JSONArray
+                ? ""
+                : String.valueOf(attribute);
     }
 
     private void sortProducts(List<JSONObject> items, String sort) {
@@ -2818,7 +3688,39 @@ public class MainActivity extends Activity {
             Collections.sort(items, this::comparePrices);
         } else if ("price_high".equals(sort)) {
             Collections.sort(items, this::comparePricesDescending);
+        } else if ("newest".equals(sort)) {
+            Collections.sort(items, this::compareNewestProducts);
+        } else {
+            Collections.sort(items, this::compareRecommendedProducts);
         }
+    }
+
+    private int compareRecommendedProducts(JSONObject left, JSONObject right) {
+        boolean leftFeatured = left.optBoolean("isFeatured", false);
+        boolean rightFeatured = right.optBoolean("isFeatured", false);
+        if (leftFeatured != rightFeatured) {
+            return leftFeatured ? -1 : 1;
+        }
+        boolean leftHasSortOrder = left.has("sortOrder");
+        boolean rightHasSortOrder = right.has("sortOrder");
+        if (!leftHasSortOrder && !rightHasSortOrder) {
+            return 0;
+        }
+        if (leftHasSortOrder != rightHasSortOrder) {
+            return leftHasSortOrder ? -1 : 1;
+        }
+        int sortOrder = Integer.compare(left.optInt("sortOrder", 0), right.optInt("sortOrder", 0));
+        if (sortOrder != 0) {
+            return sortOrder;
+        }
+        return left.optString("title", "").compareTo(right.optString("title", ""));
+    }
+
+    private int compareNewestProducts(JSONObject left, JSONObject right) {
+        String leftDate = left.optString("createdAt", "");
+        String rightDate = right.optString("createdAt", "");
+        int dateComparison = rightDate.compareTo(leftDate);
+        return dateComparison != 0 ? dateComparison : compareRecommendedProducts(left, right);
     }
 
     private int comparePricesDescending(JSONObject left, JSONObject right) {
@@ -2847,105 +3749,6 @@ public class MainActivity extends Activity {
         return values;
     }
 
-    private View categoryTabs(JSONObject section, String key, String selectedCategory) throws Exception {
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.setOrientation(LinearLayout.VERTICAL);
-        wrap.addView(text(section.optString("categoryLabel", "دسته‌بندی"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(wrap, 6);
-
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-
-        JSONArray categories = section.getJSONArray("categories");
-        for (int i = 0; i < categories.length(); i++) {
-            JSONObject category = categories.getJSONObject(i);
-            String id = category.getString("id");
-            String label = category.getString("label");
-            boolean active = id.equals(selectedCategory);
-            TextView tab = text(label, 14, active ? WHITE : BLACK, true);
-            tab.setGravity(Gravity.CENTER);
-            tab.setSingleLine(true);
-            tab.setEllipsize(TextUtils.TruncateAt.END);
-            tab.setPadding(dp(16), dp(0), dp(16), dp(0));
-            tab.setFocusable(true);
-            tab.setContentDescription(active ? label + "، فعال" : label);
-            tab.setBackground(interactiveBackground(active ? RED : SURFACE, 22, active ? RED : BORDER, 1));
-            attachPressAnimation(tab);
-            tab.setOnClickListener(v -> {
-                if (!id.equals(selectedCategory)) {
-                    trackAction("product_category_filter", metadata("category", id));
-                    selectedCategories.put(key, id);
-                    visibleItemCounts.remove(key);
-                    renderScreen(currentScreen);
-                }
-            });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, dp(42));
-            params.setMargins(dp(4), dp(2), dp(4), dp(2));
-            row.addView(tab, params);
-        }
-
-        scroll.addView(row);
-        wrap.addView(scroll, new LinearLayout.LayoutParams(-1, -2));
-        return wrap;
-    }
-
-    private View filtersPanel(JSONObject section, String key, Map<String, String> filtersState) throws Exception {
-        LinearLayout box = panel(SURFACE);
-        box.setPadding(dp(14), dp(14), dp(14), dp(14));
-        boolean expanded = Boolean.TRUE.equals(expandedFilterSections.get(key));
-        int activeFilters = activeFilterCount(section, filtersState);
-        String toggleLabel = expanded
-                ? section.optString("filtersExpandedLabel", section.optString("filtersTitle", ""))
-                : section.optString("filtersCollapsedLabel", section.optString("filtersTitle", ""));
-        if (activeFilters > 0) {
-            toggleLabel = toggleLabel + " (" + persianDigits(activeFilters) + ")";
-        }
-
-        Button toggle = button(toggleLabel, false);
-        toggle.setTextColor(activeFilters > 0 ? RED : BLACK);
-        toggle.setOnClickListener(v -> {
-            trackAction(expanded ? "product_filters_collapse" : "product_filters_expand");
-            expandedFilterSections.put(key, !expanded);
-            renderScreen(currentScreen);
-        });
-        box.addView(toggle, new LinearLayout.LayoutParams(-1, dp(48)));
-
-        if (!expanded) {
-            return box;
-        }
-
-        addSpace(box, 8);
-
-        JSONArray filters = section.getJSONArray("filters");
-        for (int i = 0; i < filters.length(); i++) {
-            JSONObject filter = filters.getJSONObject(i);
-            box.addView(filterDropdown(filter, key, filtersState.get(filter.getString("id"))), new LinearLayout.LayoutParams(-1, -2));
-            if (i < filters.length() - 1) addSpace(box, 8);
-        }
-
-        Button reset = button(section.optString("resetFiltersLabel", ""), false);
-        reset.setOnClickListener(v -> {
-            try {
-                trackAction("product_filters_reset");
-                JSONArray filterList = section.getJSONArray("filters");
-                for (int i = 0; i < filterList.length(); i++) {
-                    selectedFilters.remove(key + ":" + filterList.getJSONObject(i).getString("id"));
-                }
-                visibleItemCounts.remove(key);
-                renderScreen(currentScreen);
-            } catch (Exception e) {
-                trackError("product_filters_reset", e);
-                Toast.makeText(this, "خطا در حذف فیلترها", Toast.LENGTH_SHORT).show();
-            }
-        });
-        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(-1, dp(44));
-        resetParams.setMargins(dp(0), dp(10), dp(0), dp(0));
-        box.addView(reset, resetParams);
-        return box;
-    }
-
     private int activeFilterCount(JSONObject section, Map<String, String> filtersState) throws Exception {
         int count = 0;
         JSONArray filters = section.getJSONArray("filters");
@@ -2961,6 +3764,25 @@ public class MainActivity extends Activity {
             }
         }
         return count;
+    }
+
+    private int activeProductControlCount(JSONObject section, Map<String, String> filtersState, String query) throws Exception {
+        int count = activeFilterCount(section, filtersState);
+        return query == null || query.trim().isEmpty() ? count : count + 1;
+    }
+
+    private String filterOptionLabel(JSONObject filter, String value) throws Exception {
+        JSONArray options = filter.optJSONArray("options");
+        if (options == null) {
+            return value == null || value.isEmpty() ? filter.optString("label", "") : value;
+        }
+        for (int i = 0; i < options.length(); i++) {
+            JSONObject option = options.getJSONObject(i);
+            if (option.optString("id", "").equals(value)) {
+                return option.optString("label", value);
+            }
+        }
+        return value == null ? "" : value;
     }
 
     private View filterDropdown(JSONObject filter, String key, String selectedValue) throws Exception {
@@ -2994,21 +3816,7 @@ public class MainActivity extends Activity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 try {
-                    String filterId = filter.getString("id");
-                    String stateKey = key + ":" + filterId;
-                    String newValue = ids.get(position);
-                    String previousValue = selectedFilters.get(stateKey);
-                    if (!newValue.equals(previousValue) && !isDefaultFilter(filter, newValue)) {
-                        trackAction("product_filter", metadata(filterId, newValue));
-                        selectedFilters.put(stateKey, newValue);
-                        visibleItemCounts.remove(key);
-                        renderScreen(currentScreen);
-                    } else if (selectedFilters.containsKey(stateKey) && isDefaultFilter(filter, newValue)) {
-                        trackAction("product_filter_reset", metadata("filter", filterId));
-                        selectedFilters.remove(stateKey);
-                        visibleItemCounts.remove(key);
-                        renderScreen(currentScreen);
-                    }
+                    applyProductFilter(filter, key, ids.get(position), true);
                 } catch (Exception e) {
                     Toast.makeText(MainActivity.this, "خطا در اعمال فیلتر", Toast.LENGTH_SHORT).show();
                 }
@@ -3182,6 +3990,18 @@ public class MainActivity extends Activity {
         LinearLayout detail = new LinearLayout(this);
         detail.setOrientation(LinearLayout.VERTICAL);
         detail.setGravity(Gravity.START);
+        if (productLike) {
+            LinearLayout meta = new LinearLayout(this);
+            meta.setOrientation(LinearLayout.HORIZONTAL);
+            meta.setGravity(Gravity.CENTER_VERTICAL);
+            TextView category = pillText(productCategoryLabel(item), 11, RED, RED_TINT, RED);
+            LinearLayout.LayoutParams categoryParams = new LinearLayout.LayoutParams(0, dp(30), 1);
+            categoryParams.setMargins(dp(0), dp(0), dp(6), dp(0));
+            meta.addView(category, categoryParams);
+            meta.addView(productAvailabilityPill(item), new LinearLayout.LayoutParams(-2, dp(30)));
+            detail.addView(meta, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(detail, 8);
+        }
         TextView title = text(item.getString("title"), compact ? 19 : 17, BLACK, true);
         title.setMaxLines(2);
         detail.addView(title, new LinearLayout.LayoutParams(-1, -2));
@@ -3196,33 +4016,23 @@ public class MainActivity extends Activity {
             detail.addView(desc, new LinearLayout.LayoutParams(-1, -2));
         }
         addSpace(detail, 8);
-        detail.addView(text(item.optString("price", ""), 15, ACCENT, true), new LinearLayout.LayoutParams(-1, -2));
-        String stockLabel = item.optString("stockLabel", "");
-        if (!stockLabel.isEmpty()) {
-            addSpace(detail, 5);
-            detail.addView(text(stockLabel, 12, SECONDARY, true), new LinearLayout.LayoutParams(-1, -2));
-        }
+        detail.addView(text(item.optString("price", ""), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
 
         card.addView(detail, new LinearLayout.LayoutParams(-1, -2));
 
         addSpace(card, 12);
         if (productLike) {
-            LinearLayout actions = new LinearLayout(this);
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-            Button details = button("جزئیات", false);
-            details.setOnClickListener(v -> openProductDetail(item));
-            Button action = button(item.has("priceValue") ? "افزودن به سبد" : "افزودن / رزرو", true);
-            action.setOnClickListener(v -> {
-                trackAction("add_to_cart", metadata("product", item.optString("id", item.optString("title", ""))));
-                addProductToCart(item);
-            });
-            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(44), 1);
-            actionParams.setMargins(dp(4), dp(0), dp(0), dp(0));
-            LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(0, dp(44), 1);
-            detailsParams.setMargins(dp(0), dp(0), dp(4), dp(0));
-            actions.addView(action, actionParams);
-            actions.addView(details, detailsParams);
-            card.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+            boolean unavailable = isProductUnavailable(item);
+            Button action = button(unavailable ? "ناموجود" : (item.has("priceValue") ? "افزودن به سبد" : "افزودن / رزرو"), true);
+            if (unavailable) {
+                disableProductAction(action);
+            } else {
+                action.setOnClickListener(v -> {
+                    trackAction("add_to_cart", metadata("product", item.optString("id", item.optString("title", ""))));
+                    addProductToCart(item);
+                });
+            }
+            card.addView(action, new LinearLayout.LayoutParams(-1, dp(44)));
         } else {
             Button action = button(item.has("priceValue") ? "افزودن به سبد" : "افزودن / رزرو", true);
             action.setOnClickListener(v -> {
@@ -3239,6 +4049,10 @@ public class MainActivity extends Activity {
     }
 
     private void addProductToCart(JSONObject item) {
+        if (isProductUnavailable(item)) {
+            Toast.makeText(this, "این محصول در حال حاضر ناموجود است", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String productId = item.optString("id", "").trim();
         String url = remoteUrl("cartItemsUrl", "/cart/items");
 
@@ -3493,9 +4307,9 @@ public class MainActivity extends Activity {
         view.setTextSize(sp);
         view.setTextColor(color);
         view.setGravity(Gravity.START);
-        view.setIncludeFontPadding(true);
+        view.setIncludeFontPadding(false);
         view.setLineSpacing(dp(2), 1.0f);
-        view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
+        view.setTypeface(bold ? emphasisTypeface : bodyTypeface);
         return view;
     }
 
@@ -3503,6 +4317,8 @@ public class MainActivity extends Activity {
         Button button = new Button(this);
         button.setText(label);
         button.setTextSize(14);
+        button.setTypeface(emphasisTypeface);
+        button.setIncludeFontPadding(false);
         button.setAllCaps(false);
         button.setTextColor(filled ? WHITE : RED);
         button.setMinWidth(0);
@@ -3885,11 +4701,20 @@ public class MainActivity extends Activity {
         private static final long CYCLE_MS = 1750L;
 
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Typeface bodyTypeface;
+        private final Typeface emphasisTypeface;
         private long startedAt;
         private boolean running;
 
         LoadingIntroView(Context context) {
             super(context);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                bodyTypeface = context.getResources().getFont(R.font.vazirmatn_regular);
+                emphasisTypeface = context.getResources().getFont(R.font.vazirmatn_semibold);
+            } else {
+                bodyTypeface = Typeface.create("sans-serif", Typeface.NORMAL);
+                emphasisTypeface = Typeface.create("sans-serif-medium", Typeface.NORMAL);
+            }
             setBackgroundColor(WHITE);
             setContentDescription("EtokBike در حال بارگذاری");
             setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
@@ -3924,12 +4749,12 @@ public class MainActivity extends Activity {
             float brandY = height * 0.28f;
 
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            paint.setTypeface(emphasisTypeface);
             paint.setTextSize(d(30));
             paint.setColor(BLACK);
             canvas.drawText("EtokBike", centerX, brandY, paint);
 
-            paint.setTypeface(Typeface.DEFAULT);
+            paint.setTypeface(bodyTypeface);
             paint.setTextSize(d(14));
             paint.setColor(MUTED);
             canvas.drawText("در حال آماده‌سازی فروشگاه", centerX, brandY + d(30), paint);

@@ -1,79 +1,66 @@
 {
   "schemaVersion": 1,
   "screenId": "shop",
-  "version": 6,
+  "version": 7,
   "title": "فروشگاه",
   "hideTitle": true,
   "sections": [
-    {
-      "id": "shop-hero",
-      "type": "hero",
-      "data": {
-        "visual": "bike",
-        "eyebrow": "کاتالوگ آماده فروش",
-        "title": "انتخاب دوچرخه بر اساس مسیر، نه فقط مدل",
-        "subtitle": "دوچرخه‌های شهری، کوهستان، جاده و کودک را با موجودی، قیمت و امکان تست حضوری ببینید.",
-        "featureTitle": "پرفروش امروز: ETX 200",
-        "featureSubtitle": "مناسب مسیر خاکی و شهری، با تنظیم کامل قبل تحویل",
-        "featurePrice": "۲۸,۵۰۰,۰۰۰ تومان",
-        "primaryActionLabel": "دیدن دوچرخه‌ها",
-        "primaryTarget": "shop",
-        "secondaryActionLabel": "مشاوره خرید",
-        "secondaryTarget": "services",
-        "stats": [
-          { "value": "۴ مدل", "label": "دوچرخه" },
-          { "value": "۷ قلم", "label": "قطعه و لوازم" },
-          { "value": "۲ عدد", "label": "ETX موجود" },
-          { "value": "رایگان", "label": "انتخاب سایز" }
-        ]
-      },
-      "layout": { "variant": "bike_shop" },
-      "style": { "emphasis": "high" }
-    },
-    {
-      "id": "shop-shortcuts",
-      "type": "category_grid",
-      "data": {
-        "title": "خرید سریع",
-        "items": [
-          { "badge": "روزانه", "title": "شهری و رفت‌وآمد", "subtitle": "سبک، راحت و کم‌هزینه", "target": "shop" },
-          { "badge": "مسیر", "title": "کوهستان و خاکی", "subtitle": "فریم مقاوم و کنترل بهتر", "target": "shop" },
-          { "badge": "ایمنی", "title": "کلاه و چراغ", "subtitle": "لوازم ضروری شروع مسیر", "target": "shop" },
-          { "badge": "سرویس", "title": "قطعات مصرفی", "subtitle": "تایر، زنجیر و لنت ترمز", "target": "shop" }
-        ]
-      },
-      "layout": { "columns": 2 },
-      "style": { "cardVariant": "compact" }
-    },
     {
       "id": "products",
       "type": "product_list",
       "data": {
         "title": "محصولات فروشگاه",
+        "hideTitle": true,
         "searchLabel": "جستجوی محصول",
         "searchPlaceholder": "نام دوچرخه، قطعه یا لوازم جانبی",
-        "categoryLabel": "دسته‌بندی",
-        "defaultCategory": "bikes",
+        "searchActionLabel": "جستجو",
+        "categoryLabel": "دسته‌بندی‌ها",
+        "categoryMenuLabel": "دسته‌بندی‌ها",
+        "allCategoriesLabel": "همه محصولات",
+        "defaultCategory": "",
+        "quickFilterIds": ["availability", "sort"],
+        "filtersTitle": "فیلترهای بیشتر",
+        "filtersCollapsedLabel": "فیلترهای بیشتر",
+        "filtersExpandedLabel": "بستن فیلترها",
+        "applyFiltersLabel": "اعمال فیلتر",
+        "resetFiltersLabel": "حذف فیلترها",
+        "emptyStateText": "محصولی برای این دسته‌بندی و فیلترها پیدا نشد.",
+        "emptyStateTitle": "محصولی با این فیلترها نداریم",
+        "emptyStateDescription": "فیلترها را سبک‌تر کنید، همه محصولات را ببینید یا برای انتخاب قطعه مناسب پیام بفرستید.",
+        "emptyStateMessageLabel": "ارسال پیام",
+        "maxPriceFilter": {
+          "id": "maxPrice",
+          "label": "قیمت کمتر از",
+          "default": "",
+          "placeholder": "15000000"
+        },
         "categories": [
           { "id": "bikes", "label": "دوچرخه" },
           { "id": "parts", "label": "قطعات" },
           { "id": "accessories", "label": "لوازم جانبی" }
         ],
-        "filtersTitle": "فیلتر و مرتب‌سازی",
-        "filtersCollapsedLabel": "فیلتر موجودی و قیمت",
-        "filtersExpandedLabel": "بستن فیلترها",
-        "resetFiltersLabel": "حذف فیلترها",
-        "emptyStateText": "محصولی برای این دسته‌بندی و فیلترها پیدا نشد.",
         "filters": [
           {
             "id": "availability",
             "label": "موجودی",
             "default": "all",
             "options": [
-              { "id": "all", "label": "همه" },
+              { "id": "all", "label": "همه وضعیت‌ها" },
               { "id": "in_stock", "label": "موجود" },
               { "id": "low_stock", "label": "موجودی محدود" },
-              { "id": "orderable", "label": "قابل سفارش" }
+              { "id": "orderable", "label": "قابل سفارش" },
+              { "id": "out_of_stock", "label": "ناموجود" }
+            ]
+          },
+          {
+            "id": "sort",
+            "label": "مرتب‌سازی",
+            "default": "recommended",
+            "options": [
+              { "id": "recommended", "label": "پیشنهادی" },
+              { "id": "price_low", "label": "ارزان‌ترین" },
+              { "id": "price_high", "label": "گران‌ترین" },
+              { "id": "newest", "label": "جدیدترین" }
             ]
           },
           {
@@ -85,16 +72,6 @@
               { "id": "under_2m", "label": "زیر ۲ میلیون" },
               { "id": "2m_20m", "label": "۲ تا ۲۰ میلیون" },
               { "id": "over_20m", "label": "بالای ۲۰ میلیون" }
-            ]
-          },
-          {
-            "id": "sort",
-            "label": "مرتب‌سازی",
-            "default": "recommended",
-            "options": [
-              { "id": "recommended", "label": "پیشنهادی" },
-              { "id": "price_low", "label": "ارزان‌ترین" },
-              { "id": "price_high", "label": "گران‌ترین" }
             ]
           }
         ],
@@ -117,20 +94,6 @@
       },
       "layout": { "presentation": "paged_list" },
       "style": { "cardVariant": "product_compact" }
-    },
-    {
-      "id": "shop-benefits",
-      "type": "business_info",
-      "data": {
-        "title": "قبل از تحویل چه می‌گیرید؟",
-        "items": [
-          { "title": "تست ترمز و دنده", "subtitle": "روی تمام دوچرخه‌ها", "description": "دوچرخه قبل از خروج از فروشگاه تنظیم و تست می‌شود.", "price": "رایگان" },
-          { "title": "کد سرویس اول", "subtitle": "بعد از خرید دوچرخه", "description": "اولین بازبینی ایمنی با تخفیف برای شما ثبت می‌شود.", "price": "ETOK-SERVICE" },
-          { "title": "پشتیبانی انتخاب", "subtitle": "قبل و بعد خرید", "description": "برای سایز، مسیر، قطعه جایگزین یا فاکتور از مرکز پیام پیگیری کنید.", "price": "فعال" }
-        ]
-      },
-      "layout": {},
-      "style": { "sectionVariant": "info" }
     }
   ]
 }
