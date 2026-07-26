@@ -26,6 +26,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.util.LruCache;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -65,6 +66,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private static final String BUNDLED_MANIFEST_PATH = "mock/manifest.json";
@@ -156,6 +159,21 @@ public class MainActivity extends Activity {
     private Typeface emphasisTypeface;
     private boolean showingRegistrationForm = false;
 
+    // Shared bounded pool for all background work (network calls, telemetry, image
+    // decoding) instead of spawning a raw Thread per call, which is expensive and
+    // unbounded under bursty use (scrolling, rapid taps).
+    private final ExecutorService backgroundExecutor = Executors.newFixedThreadPool(4);
+    // In-memory cache of decoded, already-downsampled bitmaps keyed by "url@targetPx",
+    // sized relative to available heap so repeat views (revisiting a screen, scrolling
+    // back) don't re-download or re-decode the same image.
+    private final LruCache<String, Bitmap> imageCache = new LruCache<String, Bitmap>(
+            (int) (Runtime.getRuntime().maxMemory() / 1024 / 8)) {
+        @Override
+        protected int sizeOf(String key, Bitmap value) {
+            return value.getByteCount() / 1024;
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -204,13 +222,19 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    @Override
+    protected void onDestroy() {
+        backgroundExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
     private void showIntroAndStart() {
         LoadingIntroView introView = new LoadingIntroView(this);
         setContentView(introView);
         introView.start();
 
         long startedAt = SystemClock.uptimeMillis();
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             Exception loadError = null;
             try {
                 loadConfig();
@@ -238,7 +262,7 @@ public class MainActivity extends Activity {
                 }
                 checkForConfigUpdate();
             }, remaining);
-        }).start();
+        });
     }
 
     private void loadConfig() {
@@ -362,12 +386,12 @@ public class MainActivity extends Activity {
                 payload.put("metadata", metadata);
             }
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     postJson(url, payload.toString());
                 } catch (Exception ignored) {
                 }
-            }).start();
+            });
         } catch (Exception ignored) {
         }
     }
@@ -487,7 +511,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             Exception lastError = null;
             for (String manifestUrl : manifestUrls) {
                 try {
@@ -528,7 +552,7 @@ public class MainActivity extends Activity {
             if (lastError != null) {
                 trackError("config_update", lastError);
             }
-        }).start();
+        });
     }
 
     private List<String> manifestUrlCandidates() {
@@ -641,12 +665,12 @@ public class MainActivity extends Activity {
         throw new IllegalStateException("Missing URL");
     }
 
-    private Bitmap downloadBitmapWithFallbacks(String urlValue) throws Exception {
+    private Bitmap downloadBitmapWithFallbacks(String urlValue, int targetSizePx) throws Exception {
         Exception lastError = null;
         List<String> urls = urlCandidates(urlValue);
         for (String url : urls) {
             try {
-                return downloadBitmap(url);
+                return downloadBitmap(url, targetSizePx);
             } catch (Exception e) {
                 lastError = e;
             }
@@ -749,7 +773,7 @@ public class MainActivity extends Activity {
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int contentBottomPadding = dp(24);
-        content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding);
+        content.setPadding(dp(16), dp(16), dp(16), contentBottomPadding);
         scrollView.addView(content, new ScrollView.LayoutParams(-1, -2));
         root.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1));
 
@@ -772,7 +796,7 @@ public class MainActivity extends Activity {
                     topBarBasePaddingRight,
                     topBarBasePaddingBottom
             );
-            content.setPadding(dp(16), dp(12), dp(16), contentBottomPadding);
+            content.setPadding(dp(16), dp(16), dp(16), contentBottomPadding);
             nav.setPadding(dp(6), dp(6), dp(6), navBottomPadding + systemBottomInset);
 
             ViewGroup.LayoutParams navParams = nav.getLayoutParams();
@@ -797,6 +821,7 @@ public class MainActivity extends Activity {
 
         TextView logo = text("EtokBike", 20, RED, true);
         logo.setContentDescription("EtokBike، فروشگاه تخصصی دوچرخه");
+        logo.setGravity(Gravity.RIGHT);
         bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
 
         messagesButton = topIconButton(R.drawable.ic_message_24);
@@ -931,8 +956,11 @@ public class MainActivity extends Activity {
 
             JSONArray sections = screen.getJSONArray("sections");
             for (int i = 0; i < sections.length(); i++) {
+                int childCountBefore = content.getChildCount();
                 renderSection(sections.getJSONObject(i));
-                addSpace(content, 14);
+                if (content.getChildCount() > childCountBefore) {
+                    addSpace(content, 22);
+                }
             }
             if (resetScroll) {
                 scrollToTop();
@@ -1181,7 +1209,7 @@ public class MainActivity extends Activity {
     }
 
     private void submitAuthRequest(String url, JSONObject payload, String successMessage) {
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 String responseText = postJson(url, payload.toString());
                 JSONObject data = new JSONObject(responseText).optJSONObject("data");
@@ -1199,7 +1227,7 @@ public class MainActivity extends Activity {
                 trackError("auth_request", e);
                 runOnUiThread(() -> Toast.makeText(this, "خطا در عملیات حساب", Toast.LENGTH_SHORT).show());
             }
-        }).start();
+        });
     }
 
     private void updateAccountProfile(EditText name, EditText phone, EditText email, EditText address) {
@@ -1218,7 +1246,7 @@ public class MainActivity extends Activity {
             payload.put("email", customerEmail);
             payload.put("delivery_address", customerAddress);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     JSONObject response = new JSONObject(patchJson(url, payload.toString()));
                     JSONObject data = response.optJSONObject("data");
@@ -1237,7 +1265,7 @@ public class MainActivity extends Activity {
                     trackError("account_update", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در به‌روزرسانی حساب", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("account_update_payload", e);
             Toast.makeText(this, "خطا در به‌روزرسانی حساب", Toast.LENGTH_SHORT).show();
@@ -1261,7 +1289,7 @@ public class MainActivity extends Activity {
         String url = screenMeta.optString("url", "").trim();
         if (url.isEmpty()) return;
 
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 String rawJson = downloadTextWithFallbacks(url);
                 JSONObject screen = new JSONObject(rawJson);
@@ -1276,7 +1304,7 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 trackError("reload_screen_" + screenId, e);
             }
-        }).start();
+        });
     }
 
     private void renderProgramDetailScreen() {
@@ -1387,10 +1415,12 @@ public class MainActivity extends Activity {
                 content.addView(hero(data));
                 break;
             case "category_grid":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(grid(data.getJSONArray("items")));
                 break;
             case "product_row":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(horizontalCards(data.getJSONArray("items")));
                 break;
@@ -1409,6 +1439,7 @@ public class MainActivity extends Activity {
             case "service_list":
             case "schedule_list":
             case "activity_list":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 if ("carousel".equals(presentation)) {
                     content.addView(horizontalCards(data.getJSONArray("items")));
@@ -1439,14 +1470,17 @@ public class MainActivity extends Activity {
                 content.addView(serviceBookingForm(data));
                 break;
             case "status_tracker":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(statusTrackers(section));
                 break;
             case "bike_profile_list":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(bikeProfiles(data.getJSONArray("items")));
                 break;
             case "business_info":
+                if (sectionHasNoItems(data)) break;
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(businessInfo(data.getJSONArray("items")));
                 break;
@@ -1457,6 +1491,11 @@ public class MainActivity extends Activity {
             default:
                 break;
         }
+    }
+
+    private boolean sectionHasNoItems(JSONObject data) {
+        JSONArray items = data.optJSONArray("items");
+        return items == null || items.length() == 0;
     }
 
     private JSONObject sectionData(JSONObject section) {
@@ -1537,17 +1576,17 @@ public class MainActivity extends Activity {
         }
 
         if (!featureTitle.isEmpty() && !splitShowcase) {
-            addSpace(box, 10);
+            addSpace(box, 14);
             box.addView(heroFeaturePanel(section), new LinearLayout.LayoutParams(-1, -2));
         }
 
         JSONArray stats = section.optJSONArray("stats");
         if (stats != null && stats.length() > 0) {
-            addSpace(box, 10);
+            addSpace(box, 14);
             box.addView(heroStats(stats), new LinearLayout.LayoutParams(-1, -2));
         }
 
-        addSpace(box, 10);
+        addSpace(box, 14);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         Button primary = button(section.optString("primaryActionLabel", section.optString("actionLabel", "مشاهده فروشگاه")), true);
@@ -1564,10 +1603,10 @@ public class MainActivity extends Activity {
             trackAction("hero_secondary", metadata("target", target));
             openScreen(target);
         });
-        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-        primaryParams.setMargins(dp(4), dp(0), dp(0), dp(0));
-        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-        secondaryParams.setMargins(dp(0), dp(0), dp(4), dp(0));
+        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+        primaryParams.setMargins(dp(5), dp(0), dp(0), dp(0));
+        LinearLayout.LayoutParams secondaryParams = new LinearLayout.LayoutParams(0, dp(48), 1);
+        secondaryParams.setMargins(dp(0), dp(0), dp(5), dp(0));
         actions.addView(primary, primaryParams);
         actions.addView(secondary, secondaryParams);
         box.addView(actions, new LinearLayout.LayoutParams(-1, -2));
@@ -1612,41 +1651,46 @@ public class MainActivity extends Activity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER);
             for (int i = 0; i < stats.length(); i++) {
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(62), 1);
-                params.setMargins(dp(3), dp(0), dp(3), dp(0));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(76), 1);
+                params.setMargins(dp(5), dp(0), dp(5), dp(0));
                 row.addView(heroStat(stats.getJSONObject(i)), params);
             }
             return row;
         }
 
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setHorizontalFadingEdgeEnabled(true);
-        scroll.setFadingEdgeLength(dp(18));
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.START);
-        for (int i = 0; i < stats.length(); i++) {
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(116), dp(62));
-            params.setMargins(dp(4), dp(2), dp(4), dp(2));
-            row.addView(heroStat(stats.getJSONObject(i)), params);
+        // More than 3 stats: wrap into a 2-column grid instead of a horizontally
+        // scrolling row so every stat stays visible without a hidden scroll.
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < stats.length(); i += 2) {
+            if (i > 0) {
+                addSpace(wrap, 10);
+            }
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER);
+            for (int j = 0; j < 2 && i + j < stats.length(); j++) {
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(76), 1);
+                params.setMargins(dp(5), dp(0), dp(5), dp(0));
+                row.addView(heroStat(stats.getJSONObject(i + j)), params);
+            }
+            wrap.addView(row, new LinearLayout.LayoutParams(-1, -2));
         }
-        scroll.addView(row);
-        return scroll;
+        return wrap;
     }
 
     private View heroStat(JSONObject item) throws Exception {
         LinearLayout stat = new LinearLayout(this);
         stat.setOrientation(LinearLayout.VERTICAL);
         stat.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        stat.setPadding(dp(10), dp(7), dp(10), dp(7));
+        stat.setPadding(dp(12), dp(10), dp(12), dp(10));
         stat.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
-        TextView value = text(item.getString("value"), 13, BLACK, true);
+        TextView value = text(item.getString("value"), 14, BLACK, true);
         value.setSingleLine(true);
         value.setEllipsize(TextUtils.TruncateAt.END);
         stat.addView(value, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(stat, 1);
-        TextView label = text(item.getString("label"), 10, MUTED, false);
+        addSpace(stat, 3);
+        TextView label = text(item.getString("label"), 11, MUTED, false);
         label.setMaxLines(2);
         label.setEllipsize(TextUtils.TruncateAt.END);
         stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
@@ -1672,8 +1716,8 @@ public class MainActivity extends Activity {
             for (int j = 0; j < 2 && i + j < items.length(); j++) {
                 JSONObject item = items.getJSONObject(i + j);
                 View card = smallCard(item);
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(118), 1);
-                params.setMargins(dp(5), dp(5), dp(5), dp(5));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(124), 1);
+                params.setMargins(dp(6), dp(6), dp(6), dp(6));
                 row.addView(card, params);
             }
             wrap.addView(row, new LinearLayout.LayoutParams(-1, -2));
@@ -1895,7 +1939,7 @@ public class MainActivity extends Activity {
             payload.put("customer_email", customerEmail);
             payload.put("attendees", 1);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     postJson(url, payload.toString());
                     runOnUiThread(() -> {
@@ -1906,7 +1950,7 @@ public class MainActivity extends Activity {
                     trackError("program_book", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در رزرو برنامه", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("program_book_payload", e);
             Toast.makeText(this, "خطا در رزرو برنامه", Toast.LENGTH_SHORT).show();
@@ -2046,7 +2090,7 @@ public class MainActivity extends Activity {
         JSONArray gallery = new JSONArray();
         String textValue = item.optString("thumbnailText", "BIKE");
         String colorValue = item.optString("thumbnailColor", "#D71920");
-        String imageUrl = item.optString("imageUrl", "");
+        String imageUrl = item.isNull("imageUrl") ? "" : item.optString("imageUrl", "");
         gallery.put(productGalleryItem(textValue, colorValue, imageUrl, "نمای اصلی محصول"));
         gallery.put(productGalleryItem(productCategoryVisual(item.optString("category", "")), "#101114", "", productCategoryGalleryCaption(item.optString("category", ""))));
         gallery.put(productGalleryItem("FIT", "#1B4D3E", "", "انتخاب سایز، تست و تنظیم قبل از تحویل"));
@@ -2076,6 +2120,7 @@ public class MainActivity extends Activity {
         priceRow.setOrientation(LinearLayout.HORIZONTAL);
         priceRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView price = text(item.optString("price", item.has("priceValue") ? formatToman(item.optInt("priceValue", 0)) : "استعلام قیمت"), 22, RED, true);
+        price.setGravity(Gravity.RIGHT);
         priceRow.addView(price, new LinearLayout.LayoutParams(0, -2, 1));
         TextView stock = productAvailabilityPill(item);
         priceRow.addView(stock, new LinearLayout.LayoutParams(-2, dp(32)));
@@ -2423,7 +2468,14 @@ public class MainActivity extends Activity {
         Button minus = button("-", false);
         Button plus = button("+", false);
         remove.setOnClickListener(v -> updateCartItem(item, 0));
-        minus.setOnClickListener(v -> updateCartItem(item, quantity - 1));
+        if (quantity <= 1) {
+            minus.setEnabled(false);
+            minus.setTextColor(MUTED);
+            minus.setBackground(rounded(NEUTRAL_SOFT, 10, BORDER, 1));
+            minus.setContentDescription("کاهش تعداد؛ غیرفعال، برای حذف از دکمه حذف استفاده کنید");
+        } else {
+            minus.setOnClickListener(v -> updateCartItem(item, quantity - 1));
+        }
         plus.setOnClickListener(v -> updateCartItem(item, quantity + 1));
         controls.addView(remove, new LinearLayout.LayoutParams(0, dp(42), 1));
         controls.addView(minus, new LinearLayout.LayoutParams(0, dp(42), 1));
@@ -2466,7 +2518,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 JSONObject response;
                 if (quantity < 1) {
@@ -2491,7 +2543,7 @@ public class MainActivity extends Activity {
                 trackError(quantity < 1 ? "cart_remove" : "cart_update", e);
                 runOnUiThread(() -> Toast.makeText(this, "خطا در به‌روزرسانی سبد", Toast.LENGTH_SHORT).show());
             }
-        }).start();
+        });
     }
 
     private JSONObject devicePayload() throws Exception {
@@ -2559,7 +2611,7 @@ public class MainActivity extends Activity {
             }
             payload.put("items", items);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     postJson(url, payload.toString());
                     runOnUiThread(() -> {
@@ -2574,7 +2626,7 @@ public class MainActivity extends Activity {
                     trackError("checkout", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در ثبت سفارش", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("checkout_payload", e);
             Toast.makeText(this, "خطا در ثبت سفارش", Toast.LENGTH_SHORT).show();
@@ -2677,7 +2729,7 @@ public class MainActivity extends Activity {
             payload.put("preferred_time", time);
             payload.put("problem_description", problem);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     postJson(url, payload.toString());
                     runOnUiThread(() -> {
@@ -2690,7 +2742,7 @@ public class MainActivity extends Activity {
                     trackError("service_booking_submit", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در ثبت درخواست سرویس", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("service_booking_payload", e);
             Toast.makeText(this, "خطا در ثبت درخواست سرویس", Toast.LENGTH_SHORT).show();
@@ -2853,7 +2905,7 @@ public class MainActivity extends Activity {
             payload.put("label", customerNameOrFallback());
             payload.put("text", message);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     postJson(url, payload.toString());
                     runOnUiThread(() -> {
@@ -2866,7 +2918,7 @@ public class MainActivity extends Activity {
                     trackError("message_send", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در ارسال پیام", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("message_payload", e);
             Toast.makeText(this, "خطا در ارسال پیام", Toast.LENGTH_SHORT).show();
@@ -4071,7 +4123,7 @@ public class MainActivity extends Activity {
             payload.put("product", productId);
             payload.put("quantity", 1);
 
-            new Thread(() -> {
+            backgroundExecutor.execute(() -> {
                 try {
                     JSONObject response = new JSONObject(postJson(url, payload.toString()));
                     JSONObject data = response.optJSONObject("data");
@@ -4094,7 +4146,7 @@ public class MainActivity extends Activity {
                     trackError("add_to_cart", e);
                     runOnUiThread(() -> Toast.makeText(this, "خطا در افزودن به سبد", Toast.LENGTH_SHORT).show());
                 }
-            }).start();
+            });
         } catch (Exception e) {
             trackError("add_to_cart_payload", e);
             Toast.makeText(this, "خطا در افزودن به سبد", Toast.LENGTH_SHORT).show();
@@ -4192,7 +4244,7 @@ public class MainActivity extends Activity {
     }
 
     private View thumbnail(JSONObject item, int height) {
-        String imageUrl = item.optString("imageUrl", "").trim();
+        String imageUrl = item.isNull("imageUrl") ? "" : item.optString("imageUrl", "").trim();
         TextView fallback = text(item.optString("thumbnailText", "ETOK"), 18, WHITE, true);
         fallback.setGravity(Gravity.CENTER);
         fallback.setSingleLine(true);
@@ -4212,23 +4264,38 @@ public class MainActivity extends Activity {
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setVisibility(View.INVISIBLE);
         frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
-        loadRemoteImage(image, imageUrl);
+        loadRemoteImage(image, imageUrl, height);
         return frame;
     }
 
-    private void loadRemoteImage(ImageView image, String urlValue) {
-        new Thread(() -> {
+    private void loadRemoteImage(ImageView image, String urlValue, int targetSizePx) {
+        String cacheKey = urlValue + "@" + targetSizePx;
+        image.setTag(cacheKey);
+
+        Bitmap cached = imageCache.get(cacheKey);
+        if (cached != null) {
+            image.setImageBitmap(cached);
+            image.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        backgroundExecutor.execute(() -> {
             try {
-                Bitmap bitmap = downloadBitmapWithFallbacks(urlValue);
+                Bitmap bitmap = downloadBitmapWithFallbacks(urlValue, targetSizePx);
                 if (bitmap == null) return;
+                imageCache.put(cacheKey, bitmap);
                 runOnUiThread(() -> {
+                    // The ImageView may have been reused for a different item (screen
+                    // re-rendered, filter changed) by the time this finishes: only
+                    // apply the bitmap if it's still the request this view is waiting on.
+                    if (!cacheKey.equals(image.getTag())) return;
                     image.setImageBitmap(bitmap);
                     image.setVisibility(View.VISIBLE);
                 });
             } catch (Exception e) {
                 trackError("image_load", e);
             }
-        }).start();
+        });
     }
 
     private View infoPanel(JSONObject section) throws Exception {
@@ -4436,7 +4503,7 @@ public class MainActivity extends Activity {
         String separator = url.contains("?") ? "&" : "?";
         String requestUrl = url + separator + "device_id=" + urlEncode(telemetryDeviceId);
 
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 JSONObject response = new JSONObject(downloadTextWithFallbacks(requestUrl));
                 JSONObject data = response.optJSONObject("data");
@@ -4458,7 +4525,7 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 trackError("mobile_state", e);
             }
-        }).start();
+        });
     }
 
     private void refreshCartForScreen() {
@@ -4477,7 +4544,7 @@ public class MainActivity extends Activity {
         }
 
         cartRefreshInProgress = true;
-        new Thread(() -> {
+        backgroundExecutor.execute(() -> {
             try {
                 Map<String, JSONObject> nextCartItems = fetchCartItems();
                 runOnUiThread(() -> {
@@ -4497,7 +4564,7 @@ public class MainActivity extends Activity {
                 cartRefreshInProgress = false;
                 trackError("cart_screen_refresh", e);
             }
-        }).start();
+        });
     }
 
     private Map<String, JSONObject> fetchCartItems() {
@@ -4598,7 +4665,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private Bitmap downloadBitmap(String urlValue) throws Exception {
+    private Bitmap downloadBitmap(String urlValue, int targetSizePx) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(urlValue).openConnection();
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(5000);
@@ -4610,11 +4677,34 @@ public class MainActivity extends Activity {
             throw new IllegalStateException("HTTP " + code);
         }
 
+        byte[] bytes;
         try {
-            return BitmapFactory.decodeStream(connection.getInputStream());
+            bytes = readBytes(connection.getInputStream());
         } finally {
             connection.disconnect();
         }
+
+        // Decode bounds only first so we never allocate a full-resolution bitmap
+        // just to shrink it after the fact for a small thumbnail.
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight, targetSizePx);
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+    }
+
+    private int sampleSizeFor(int sourceWidth, int sourceHeight, int targetSizePx) {
+        int sampleSize = 1;
+        if (targetSizePx <= 0 || sourceWidth <= 0 || sourceHeight <= 0) {
+            return sampleSize;
+        }
+        int largerSide = Math.max(sourceWidth, sourceHeight);
+        while (largerSide / (sampleSize * 2) >= targetSizePx) {
+            sampleSize *= 2;
+        }
+        return sampleSize;
     }
 
     private String postJson(String urlValue, String json) throws Exception {
@@ -4679,13 +4769,17 @@ public class MainActivity extends Activity {
     }
 
     private String readStream(InputStream input) throws Exception {
+        return new String(readBytes(input), StandardCharsets.UTF_8);
+    }
+
+    private byte[] readBytes(InputStream input) throws Exception {
         try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[4096];
             int read;
             while ((read = source.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
             }
-            return new String(output.toByteArray(), StandardCharsets.UTF_8);
+            return output.toByteArray();
         }
     }
 
