@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "appId": "etokbike",
-  "appVersion": 18,
+  "appVersion": 19,
   "remoteConfig": {
     "manifestUrl": "http://10.0.2.2:8001/api/mobile/manifest",
     "manifestUrls": [
@@ -41,7 +41,7 @@
     { "id": "account", "label": "حساب", "screenId": "account" }
   ],
   "screens": {
-    "home": { "version": 8, "asset": "mock/screens/home.json", "url": "", "checksum": "" },
+    "home": { "version": 9, "asset": "mock/screens/home.json", "url": "", "checksum": "" },
     "shop": { "version": 7, "asset": "mock/screens/shop.json", "url": "", "checksum": "" },
     "services": { "version": 8, "asset": "mock/screens/services.json", "url": "", "checksum": "" },
     "events": { "version": 7, "asset": "mock/screens/events.json", "url": "", "checksum": "" },

@@ -32,6 +32,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.inputmethod.EditorInfo;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
@@ -89,27 +91,37 @@ public class MainActivity extends Activity {
     private static final int GALLERY_TILE_HEIGHT_DP = 150;
     private static final int THUMBNAIL_MEDIA_SIZE_DP = 88;
 
-    private static final int RED = Color.rgb(215, 25, 32);
-    private static final int DARK_RED = Color.rgb(176, 20, 26);
+    // "Bike computer" palette: asphalt ink, chalk paper, racing red, trail green.
+    private static final int RED = Color.rgb(211, 31, 39);
+    private static final int DARK_RED = Color.rgb(165, 21, 27);
     private static final int ACCENT = RED;
-    private static final int BLACK = Color.rgb(16, 17, 20);
+    private static final int BLACK = Color.rgb(20, 23, 26);
     private static final int WHITE = Color.WHITE;
-    private static final int BACKGROUND = Color.rgb(250, 248, 245);
+    private static final int BACKGROUND = Color.rgb(245, 240, 230);
     private static final int SURFACE = WHITE;
-    private static final int SURFACE_ALT = Color.rgb(243, 241, 237);
-    private static final int BORDER = Color.rgb(229, 226, 220);
-    private static final int MUTED = Color.rgb(98, 99, 104);
+    private static final int SURFACE_ALT = Color.rgb(239, 233, 219);
+    private static final int BORDER = Color.rgb(226, 218, 200);
+    private static final int MUTED = Color.rgb(108, 106, 99);
     private static final int TOP_BAR_SURFACE = SURFACE;
-    private static final int HERO_SURFACE = Color.rgb(255, 240, 241);
-    private static final int HERO_PANEL = SURFACE;
-    private static final int HERO_BORDER = Color.rgb(246, 198, 202);
-    private static final int RED_TINT = HERO_SURFACE;
+    // Hero is now a dark "ink" card; panel/border are translucent chalk overlays on top of it.
+    private static final int HERO_SURFACE = BLACK;
+    private static final int HERO_PANEL = Color.argb(18, 245, 240, 230);
+    private static final int HERO_BORDER = Color.argb(40, 245, 240, 230);
+    private static final int HERO_TEXT = WHITE;
+    private static final int HERO_TEXT_MUTED = Color.rgb(201, 196, 184);
+    private static final int HERO_STAT_LABEL = Color.rgb(163, 158, 146);
+    // Soft pink border used by light (non-hero) pills, e.g. the active bottom-nav tab.
+    private static final int PILL_BORDER_SOFT = Color.rgb(246, 198, 202);
+    private static final int RED_TINT = Color.rgb(251, 231, 228);
     private static final int SECONDARY = Color.rgb(27, 77, 62);
-    private static final int SUCCESS = Color.rgb(15, 118, 110);
-    private static final int SUCCESS_SOFT = Color.rgb(232, 247, 244);
-    private static final int WARNING = Color.rgb(217, 119, 6);
-    private static final int WARNING_SOFT = Color.rgb(255, 244, 229);
-    private static final int NEUTRAL_SOFT = Color.rgb(244, 244, 245);
+    private static final int SUCCESS = SECONDARY;
+    private static final int SUCCESS_SOFT = Color.rgb(228, 240, 234);
+    private static final int WARNING = Color.rgb(176, 106, 26);
+    private static final int WARNING_SOFT = Color.rgb(250, 238, 219);
+    private static final int NEUTRAL_SOFT = Color.rgb(239, 233, 219);
+    // Neutral "studio photography" backdrop used behind bike illustrations.
+    private static final int STUDIO_TOP = WHITE;
+    private static final int STUDIO_BOTTOM = Color.rgb(232, 225, 207);
 
     private final Map<String, JSONObject> screens = new HashMap<>();
     private final Map<String, Integer> visibleItemCounts = new HashMap<>();
@@ -134,8 +146,8 @@ public class MainActivity extends Activity {
     private ScrollView scrollView;
     private LinearLayout content;
     private LinearLayout nav;
-    private Button messagesButton;
-    private Button cartButton;
+    private View messagesButton;
+    private View cartButton;
     private String currentScreen = "home";
     private JSONObject activeProgramDetail;
     private JSONObject activeProductDetail;
@@ -183,19 +195,53 @@ public class MainActivity extends Activity {
         activeManifestUrl = customerPreferences.getString(ACTIVE_MANIFEST_URL_PREF, "");
         loadCustomerProfile();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setStatusBarColor(TOP_BAR_SURFACE);
-        getWindow().setNavigationBarColor(SURFACE);
-        int systemUiFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            systemUiFlags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        }
-        getWindow().getDecorView().setSystemUiVisibility(systemUiFlags);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getWindow().setNavigationBarContrastEnforced(false);
-        }
+        applySystemBarStyle();
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
         showIntroAndStart();
+    }
+
+    // setStatusBarColor/setNavigationBarColor have no non-deprecated equivalent that
+    // keeps this app's explicit-solid-bar-color design (the replacement is edge-to-edge
+    // drawing, a larger redesign); the legacy light-bars flags are still required below
+    // API 30. Both are intentionally isolated here instead of suppressed file-wide.
+    @SuppressWarnings("deprecation")
+    private void applySystemBarStyle() {
+        getWindow().setStatusBarColor(TOP_BAR_SURFACE);
+        getWindow().setNavigationBarColor(SURFACE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                int appearance = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(appearance, appearance);
+            }
+        } else {
+            int systemUiFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                systemUiFlags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            getWindow().getDecorView().setSystemUiVisibility(systemUiFlags);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemBarInsetTop(WindowInsets insets) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return insets.getInsets(WindowInsets.Type.systemBars()).top;
+        }
+        return insets.getSystemWindowInsetTop();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemBarInsetBottom(WindowInsets insets) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return insets.getInsets(WindowInsets.Type.systemBars()).bottom;
+        }
+        return insets.getSystemWindowInsetBottom();
     }
 
     private void initializeTypography() {
@@ -788,8 +834,8 @@ public class MainActivity extends Activity {
         root.addView(nav, new LinearLayout.LayoutParams(-1, navBaseHeight));
 
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            int systemTopInset = insets.getSystemWindowInsetTop();
-            int systemBottomInset = insets.getSystemWindowInsetBottom();
+            int systemTopInset = systemBarInsetTop(insets);
+            int systemBottomInset = systemBarInsetBottom(insets);
             topBar.setPadding(
                     topBarBasePaddingLeft,
                     topBarBasePaddingTop + systemTopInset,
@@ -819,10 +865,21 @@ public class MainActivity extends Activity {
         bar.setBackground(rounded(TOP_BAR_SURFACE, 0, BORDER, 1));
         bar.setElevation(dp(2));
 
-        TextView logo = text("EtokBike", 20, RED, true);
-        logo.setContentDescription("EtokBike، فروشگاه تخصصی دوچرخه");
-        logo.setGravity(Gravity.RIGHT);
-        bar.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout wordmark = new LinearLayout(this);
+        wordmark.setOrientation(LinearLayout.HORIZONTAL);
+        wordmark.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        wordmark.setContentDescription("EtokBike، فروشگاه تخصصی دوچرخه");
+        View wordmarkDot = new View(this);
+        GradientDrawable wordmarkDotShape = new GradientDrawable();
+        wordmarkDotShape.setShape(GradientDrawable.OVAL);
+        wordmarkDotShape.setColor(RED);
+        wordmarkDot.setBackground(wordmarkDotShape);
+        LinearLayout.LayoutParams wordmarkDotParams = new LinearLayout.LayoutParams(dp(8), dp(8));
+        wordmarkDotParams.setMargins(dp(0), dp(0), dp(7), dp(0));
+        wordmark.addView(wordmarkDot, wordmarkDotParams);
+        TextView logo = text("EtokBike", 20, BLACK, true);
+        wordmark.addView(logo, new LinearLayout.LayoutParams(-2, -2));
+        bar.addView(wordmark, new LinearLayout.LayoutParams(0, -2, 1));
 
         messagesButton = topIconButton(R.drawable.ic_message_24);
         updateMessageButton();
@@ -867,7 +924,7 @@ public class MainActivity extends Activity {
                 tab.setCompoundDrawablePadding(dp(2));
                 tab.setCompoundDrawableTintList(ColorStateList.valueOf(selected ? RED : MUTED));
                 tab.setContentDescription(selected ? label + "، فعال" : label);
-                tab.setBackground(interactiveBackground(selected ? RED_TINT : SURFACE, 14, selected ? HERO_BORDER : SURFACE, selected ? 1 : 0));
+                tab.setBackground(interactiveBackground(selected ? RED_TINT : SURFACE, 14, selected ? PILL_BORDER_SOFT : SURFACE, selected ? 1 : 0));
                 attachPressAnimation(tab);
                 tab.setOnClickListener(v -> {
                     trackAction("bottom_navigation", metadata("target", screen));
@@ -1424,6 +1481,10 @@ public class MainActivity extends Activity {
                 content.addView(sectionTitle(data.getString("title")));
                 content.addView(horizontalCards(data.getJSONArray("items")));
                 break;
+            case "bundle_offers":
+                if (sectionHasNoItems(data)) break;
+                content.addView(bundleOffers(data));
+                break;
             case "offer_sections":
                 content.addView(offerSections(data));
                 break;
@@ -1511,9 +1572,9 @@ public class MainActivity extends Activity {
         LinearLayout box = panel(HERO_SURFACE);
         box.setBackground(rounded(HERO_SURFACE, 12, HERO_BORDER, 1));
         box.setPadding(dp(18), dp(18), dp(18), dp(18));
-        box.addView(text(section.getString("title"), 22, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        box.addView(text(section.getString("title"), 22, HERO_TEXT, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 6);
-        box.addView(text(section.getString("subtitle"), 14, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        box.addView(text(section.getString("subtitle"), 14, HERO_TEXT_MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 12);
         Button action = button(section.getString("actionLabel"), true);
         String target = section.optString("target", "shop");
@@ -1538,12 +1599,12 @@ public class MainActivity extends Activity {
             box.addView(chip, chipParams);
         }
 
-        TextView title = text(section.getString("title"), 23, BLACK, true);
+        TextView title = text(section.getString("title"), 23, HERO_TEXT, true);
         title.setMaxLines(3);
         box.addView(title, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 4);
 
-        TextView subtitle = text(section.getString("subtitle"), 13, MUTED, false);
+        TextView subtitle = text(section.getString("subtitle"), 13, HERO_TEXT_MUTED, false);
         subtitle.setMaxLines(3);
         subtitle.setEllipsize(TextUtils.TruncateAt.END);
         box.addView(subtitle, new LinearLayout.LayoutParams(-1, -2));
@@ -1596,8 +1657,8 @@ public class MainActivity extends Activity {
             openScreen(target);
         });
         Button secondary = button(section.optString("secondaryActionLabel", "رزرو سرویس"), false);
-        secondary.setTextColor(RED);
-        secondary.setBackground(interactiveBackground(HERO_PANEL, 10, RED, 1));
+        secondary.setTextColor(HERO_TEXT);
+        secondary.setBackground(interactiveBackground(HERO_PANEL, 10, HERO_BORDER, 1));
         secondary.setOnClickListener(v -> {
             String target = section.optString("secondaryTarget", "services");
             trackAction("hero_secondary", metadata("target", target));
@@ -1620,7 +1681,7 @@ public class MainActivity extends Activity {
         feature.setPadding(dp(12), dp(10), dp(12), dp(10));
         feature.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
 
-        TextView title = text(section.optString("featureTitle", ""), 14, BLACK, true);
+        TextView title = text(section.optString("featureTitle", ""), 14, HERO_TEXT, true);
         title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END);
         feature.addView(title, new LinearLayout.LayoutParams(-1, -2));
@@ -1628,7 +1689,7 @@ public class MainActivity extends Activity {
         String subtitle = section.optString("featureSubtitle", "");
         if (!subtitle.isEmpty()) {
             addSpace(feature, 3);
-            TextView subtitleView = text(subtitle, 11, MUTED, false);
+            TextView subtitleView = text(subtitle, 11, HERO_TEXT_MUTED, false);
             subtitleView.setMaxLines(2);
             subtitleView.setEllipsize(TextUtils.TruncateAt.END);
             feature.addView(subtitleView, new LinearLayout.LayoutParams(-1, -2));
@@ -1636,8 +1697,8 @@ public class MainActivity extends Activity {
 
         String price = section.optString("featurePrice", "");
         if (!price.isEmpty()) {
-            addSpace(feature, 4);
-            TextView priceView = text(price, 12, ACCENT, true);
+            addSpace(feature, 6);
+            TextView priceView = text(price, 16, HERO_TEXT, true);
             priceView.setMaxLines(1);
             priceView.setEllipsize(TextUtils.TruncateAt.END);
             feature.addView(priceView, new LinearLayout.LayoutParams(-1, -2));
@@ -1645,36 +1706,30 @@ public class MainActivity extends Activity {
         return feature;
     }
 
+    // Rendered as a single "computer readout" bar: segments separated by hairline
+    // dividers rather than individual cards, matching a bike computer's stat row.
     private View heroStats(JSONArray stats) throws Exception {
-        if (stats.length() <= 3) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER);
-            for (int i = 0; i < stats.length(); i++) {
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(76), 1);
-                params.setMargins(dp(5), dp(0), dp(5), dp(0));
-                row.addView(heroStat(stats.getJSONObject(i)), params);
-            }
-            return row;
-        }
-
-        // More than 3 stats: wrap into a 2-column grid instead of a horizontally
-        // scrolling row so every stat stays visible without a hidden scroll.
+        int perRow = 4;
         LinearLayout wrap = new LinearLayout(this);
         wrap.setOrientation(LinearLayout.VERTICAL);
-        for (int i = 0; i < stats.length(); i += 2) {
+        for (int i = 0; i < stats.length(); i += perRow) {
             if (i > 0) {
-                addSpace(wrap, 10);
+                addSpace(wrap, 6);
             }
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER);
-            for (int j = 0; j < 2 && i + j < stats.length(); j++) {
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(76), 1);
-                params.setMargins(dp(5), dp(0), dp(5), dp(0));
-                row.addView(heroStat(stats.getJSONObject(i + j)), params);
+            LinearLayout strip = new LinearLayout(this);
+            strip.setOrientation(LinearLayout.HORIZONTAL);
+            strip.setGravity(Gravity.CENTER_VERTICAL);
+            strip.setBackground(rounded(HERO_PANEL, 12, HERO_BORDER, 1));
+            int count = Math.min(perRow, stats.length() - i);
+            for (int j = 0; j < count; j++) {
+                if (j > 0) {
+                    View divider = new View(this);
+                    divider.setBackgroundColor(HERO_BORDER);
+                    strip.addView(divider, new LinearLayout.LayoutParams(dp(1), dp(56)));
+                }
+                strip.addView(heroStat(stats.getJSONObject(i + j)), new LinearLayout.LayoutParams(0, -2, 1));
             }
-            wrap.addView(row, new LinearLayout.LayoutParams(-1, -2));
+            wrap.addView(strip, new LinearLayout.LayoutParams(-1, -2));
         }
         return wrap;
     }
@@ -1682,15 +1737,16 @@ public class MainActivity extends Activity {
     private View heroStat(JSONObject item) throws Exception {
         LinearLayout stat = new LinearLayout(this);
         stat.setOrientation(LinearLayout.VERTICAL);
-        stat.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        stat.setPadding(dp(12), dp(10), dp(12), dp(10));
-        stat.setBackground(rounded(HERO_PANEL, 10, HERO_BORDER, 1));
-        TextView value = text(item.getString("value"), 14, BLACK, true);
+        stat.setGravity(Gravity.CENTER);
+        stat.setPadding(dp(6), dp(12), dp(6), dp(12));
+        TextView value = text(item.getString("value"), 13, HERO_TEXT, true);
+        value.setGravity(Gravity.CENTER);
         value.setSingleLine(true);
         value.setEllipsize(TextUtils.TruncateAt.END);
         stat.addView(value, new LinearLayout.LayoutParams(-1, -2));
         addSpace(stat, 3);
-        TextView label = text(item.getString("label"), 11, MUTED, false);
+        TextView label = text(item.getString("label"), 10, HERO_STAT_LABEL, false);
+        label.setGravity(Gravity.CENTER);
         label.setMaxLines(2);
         label.setEllipsize(TextUtils.TruncateAt.END);
         stat.addView(label, new LinearLayout.LayoutParams(-1, -2));
@@ -1738,6 +1794,117 @@ public class MainActivity extends Activity {
         }
         scroll.addView(row);
         return scroll;
+    }
+
+    private View bundleOffers(JSONObject data) throws Exception {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(sectionTitle(data.getString("title")));
+        String subtitle = data.optString("subtitle", "");
+        if (!subtitle.isEmpty()) {
+            TextView sub = text(subtitle, 13, MUTED, false);
+            sub.setPadding(dp(0), dp(0), dp(0), dp(10));
+            wrap.addView(sub, new LinearLayout.LayoutParams(-1, -2));
+        }
+
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        JSONArray items = data.getJSONArray("items");
+        for (int i = 0; i < items.length(); i++) {
+            View card = bundleCard(items.getJSONObject(i));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(258), -2);
+            params.setMargins(dp(7), dp(5), dp(7), dp(5));
+            row.addView(card, params);
+        }
+        scroll.addView(row);
+        wrap.addView(scroll, new LinearLayout.LayoutParams(-1, -2));
+        return wrap;
+    }
+
+    private View bundleCard(JSONObject item) throws Exception {
+        LinearLayout card = panel(WHITE);
+        card.setBackground(rounded(SURFACE, 12, WARNING_SOFT, 1));
+
+        String ribbon = item.optString("ribbon", "");
+        if (!ribbon.isEmpty()) {
+            LinearLayout ribbonRow = new LinearLayout(this);
+            ribbonRow.setOrientation(LinearLayout.HORIZONTAL);
+            ribbonRow.setGravity(Gravity.END);
+            TextView ribbonView = pillText(ribbon, 11, WARNING, WARNING_SOFT, WARNING);
+            ribbonView.setPadding(dp(10), dp(4), dp(10), dp(4));
+            ribbonRow.addView(ribbonView, new LinearLayout.LayoutParams(-2, -2));
+            card.addView(ribbonRow, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(card, 10);
+        }
+
+        JSONArray components = item.optJSONArray("components");
+        if (components != null && components.length() > 0) {
+            LinearLayout chipsRow = new LinearLayout(this);
+            chipsRow.setOrientation(LinearLayout.HORIZONTAL);
+            chipsRow.setGravity(Gravity.CENTER);
+            for (int i = 0; i < components.length(); i++) {
+                JSONObject component = components.getJSONObject(i);
+                TextView chip = text(component.optString("text", ""), 10, WHITE, true);
+                chip.setGravity(Gravity.CENTER);
+                chip.setSingleLine(true);
+                chip.setEllipsize(TextUtils.TruncateAt.END);
+                chip.setBackground(rounded(Color.parseColor(component.optString("color", "#101114")), 11, 0, 0));
+                chipsRow.addView(chip, new LinearLayout.LayoutParams(dp(44), dp(44)));
+                if (i < components.length() - 1) {
+                    TextView plus = text("+", 15, MUTED, true);
+                    plus.setGravity(Gravity.CENTER);
+                    chipsRow.addView(plus, new LinearLayout.LayoutParams(dp(18), dp(44)));
+                }
+            }
+            card.addView(chipsRow, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(card, 14);
+        }
+
+        card.addView(text(item.getString("title"), 15, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+        String bundleSubtitle = item.optString("subtitle", "");
+        if (!bundleSubtitle.isEmpty()) {
+            addSpace(card, 4);
+            card.addView(text(bundleSubtitle, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        }
+        addSpace(card, 10);
+
+        LinearLayout priceRow = new LinearLayout(this);
+        priceRow.setOrientation(LinearLayout.HORIZONTAL);
+        priceRow.setGravity(Gravity.CENTER_VERTICAL);
+        priceRow.addView(text(item.optString("price", ""), 17, BLACK, true), new LinearLayout.LayoutParams(-2, -2));
+        String wasPrice = item.optString("wasPrice", "");
+        if (!wasPrice.isEmpty()) {
+            View spacer = new View(this);
+            priceRow.addView(spacer, new LinearLayout.LayoutParams(dp(8), 1));
+            TextView was = text(wasPrice, 12, MUTED, false);
+            was.setPaintFlags(was.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+            priceRow.addView(was, new LinearLayout.LayoutParams(-2, -2));
+        }
+        card.addView(priceRow, new LinearLayout.LayoutParams(-1, -2));
+
+        String saveLabel = item.optString("saveLabel", "");
+        if (!saveLabel.isEmpty()) {
+            addSpace(card, 8);
+            TextView save = pillText(saveLabel, 11, SUCCESS, SUCCESS_SOFT, SUCCESS);
+            save.setPadding(dp(10), dp(4), dp(10), dp(4));
+            card.addView(save, new LinearLayout.LayoutParams(-2, -2));
+        }
+
+        addSpace(card, 12);
+        boolean unavailable = isProductUnavailable(item);
+        Button add = button(unavailable ? "ناموجود" : item.optString("ctaLabel", "افزودن بسته به سبد"), true);
+        if (unavailable) {
+            disableProductAction(add);
+        } else {
+            add.setOnClickListener(v -> {
+                trackAction("add_bundle_to_cart", metadata("bundle", item.optString("id", item.optString("title", ""))));
+                addProductToCart(item);
+            });
+        }
+        card.addView(add, new LinearLayout.LayoutParams(-1, dp(44)));
+        return card;
     }
 
     private View offerSections(JSONObject section) throws Exception {
@@ -3948,7 +4115,21 @@ public class MainActivity extends Activity {
 
     private View accountCard(JSONObject item) throws Exception {
         LinearLayout card = panel(WHITE);
-        card.addView(text(item.getString("title"), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        View liveDot = new View(this);
+        GradientDrawable dotShape = new GradientDrawable();
+        dotShape.setShape(GradientDrawable.OVAL);
+        dotShape.setColor(SECONDARY);
+        liveDot.setBackground(dotShape);
+        LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(7), dp(7));
+        dotParams.setMargins(dp(0), dp(0), dp(7), dp(0));
+        titleRow.addView(liveDot, dotParams);
+        titleRow.addView(text(item.getString("title"), 17, BLACK, true), new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
+
         addSpace(card, 5);
         card.addView(text(item.getString("subtitle"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         String description = item.optString("description", "");
@@ -3956,19 +4137,31 @@ public class MainActivity extends Activity {
             addSpace(card, 5);
             card.addView(text(description, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
         }
-        addSpace(card, 8);
-        card.addView(text(item.optString("price", ""), 14, ACCENT, true), new LinearLayout.LayoutParams(-1, -2));
+        String price = item.optString("price", "");
+        if (!price.isEmpty()) {
+            addSpace(card, 10);
+            TextView pricePill = pillText(price, 11, RED, RED_TINT, RED);
+            card.addView(pricePill, new LinearLayout.LayoutParams(-2, dp(30)));
+        }
         return card;
     }
 
     private View ongoingPurchaseCard(JSONObject item, String key) throws Exception {
         LinearLayout card = panel(WHITE);
-        card.addView(text(item.getString("title"), 17, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(card, 5);
-        card.addView(text(item.getString("subtitle"), 13, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(card, 8);
-        card.addView(text(item.optString("status", ""), 14, ACCENT, true), new LinearLayout.LayoutParams(-1, -2));
-        addSpace(card, 10);
+
+        String status = item.optString("status", "");
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(text(item.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(0, -2, 1));
+        if (!status.isEmpty()) {
+            TextView statusPill = pillText(status, 10, RED, RED_TINT, RED);
+            head.addView(statusPill, new LinearLayout.LayoutParams(-2, dp(26)));
+        }
+        card.addView(head, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 4);
+        card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        addSpace(card, 12);
 
         boolean expanded = Boolean.TRUE.equals(expandedAccountSections.get(key));
         Button toggle = button(expanded ? item.optString("collapseLabel", "بستن وضعیت") : item.optString("expandLabel", "مشاهده وضعیت"), false);
@@ -3980,49 +4173,122 @@ public class MainActivity extends Activity {
         card.addView(toggle, new LinearLayout.LayoutParams(-1, dp(44)));
 
         if (expanded) {
-            addSpace(card, 12);
-            card.addView(text(item.optString("currentLocation", ""), 13, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
-            addSpace(card, 8);
+            addSpace(card, 14);
             JSONArray steps = item.getJSONArray("steps");
             int currentStep = item.optInt("currentStep", 0);
-            for (int i = 0; i < steps.length(); i++) {
-                JSONObject step = steps.getJSONObject(i);
-                boolean active = i == currentStep;
-                boolean done = i < currentStep;
-                String prefix = done ? "✓ " : active ? "• " : "○ ";
-                int color = active ? RED : done ? BLACK : MUTED;
-                card.addView(text(prefix + step.getString("label"), 14, color, active || done), new LinearLayout.LayoutParams(-1, -2));
-                String detail = step.optString("detail", "");
-                if (!detail.isEmpty()) {
-                    card.addView(text(detail, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
-                }
-                if (i < steps.length() - 1) addSpace(card, 8);
+            card.addView(statusGauge(steps, currentStep), new LinearLayout.LayoutParams(-1, -2));
+
+            String currentLocation = item.optString("currentLocation", "");
+            String activeDetail = currentStep >= 0 && currentStep < steps.length()
+                    ? steps.getJSONObject(currentStep).optString("detail", "")
+                    : "";
+            if (!currentLocation.isEmpty() || !activeDetail.isEmpty()) {
+                addSpace(card, 12);
+                View divider = new View(this);
+                divider.setBackgroundColor(BORDER);
+                card.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
+                addSpace(card, 12);
+                String detailText = (currentLocation.isEmpty() ? "" : currentLocation)
+                        + (currentLocation.isEmpty() || activeDetail.isEmpty() ? "" : " — ")
+                        + activeDetail;
+                card.addView(text(detailText, 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
             }
         }
         return card;
     }
 
+    // Horizontal dot-and-line gauge: each step is a weighted column whose left/right
+    // half-line meets its neighbor's at the column boundary, forming one continuous
+    // track that's colored up to the current step.
+    private View statusGauge(JSONArray steps, int currentStep) throws Exception {
+        LinearLayout gauge = new LinearLayout(this);
+        gauge.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < steps.length(); i++) {
+            JSONObject step = steps.getJSONObject(i);
+            boolean reached = i <= currentStep;
+            boolean passed = i < currentStep;
+
+            LinearLayout column = new LinearLayout(this);
+            column.setOrientation(LinearLayout.VERTICAL);
+            column.setGravity(Gravity.CENTER);
+
+            LinearLayout dotRow = new LinearLayout(this);
+            dotRow.setOrientation(LinearLayout.HORIZONTAL);
+            dotRow.setGravity(Gravity.CENTER_VERTICAL);
+
+            View leftHalf = new View(this);
+            leftHalf.setBackgroundColor(reached ? RED : BORDER);
+            dotRow.addView(leftHalf, new LinearLayout.LayoutParams(0, dp(2), i == 0 ? 0 : 1));
+
+            View dot = new View(this);
+            GradientDrawable dotShape = new GradientDrawable();
+            dotShape.setShape(GradientDrawable.OVAL);
+            dotShape.setColor(reached ? RED : SURFACE_ALT);
+            dotShape.setStroke(dp(2), reached ? RED : BORDER);
+            dot.setBackground(dotShape);
+            LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(10), dp(10));
+            dotParams.setMargins(dp(3), dp(0), dp(3), dp(0));
+            dotRow.addView(dot, dotParams);
+
+            View rightHalf = new View(this);
+            rightHalf.setBackgroundColor(passed ? RED : BORDER);
+            dotRow.addView(rightHalf, new LinearLayout.LayoutParams(0, dp(2), i == steps.length() - 1 ? 0 : 1));
+
+            column.addView(dotRow, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(column, 7);
+
+            TextView label = text(step.getString("label"), 10, i == currentStep ? BLACK : MUTED, i == currentStep);
+            label.setGravity(Gravity.CENTER);
+            label.setMaxLines(2);
+            label.setEllipsize(TextUtils.TruncateAt.END);
+            column.addView(label, new LinearLayout.LayoutParams(-1, -2));
+
+            gauge.addView(column, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        return gauge;
+    }
+
     private View smallCard(JSONObject item) throws Exception {
-        LinearLayout card = panel(SURFACE);
-        card.setBackground(interactiveBackground(SURFACE, 8, BORDER, 1));
-        card.setFocusable(true);
-        attachPressAnimation(card);
         String badge = item.optString("badge", "");
+        int ruleColor = quickActionRuleColor(badge);
+
+        LinearLayout outer = new LinearLayout(this);
+        outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setBackground(interactiveBackground(SURFACE, 8, BORDER, 1));
+        outer.setFocusable(true);
+        attachPressAnimation(outer);
+
+        View rule = new View(this);
+        rule.setBackgroundColor(ruleColor);
+        outer.addView(rule, new LinearLayout.LayoutParams(-1, dp(3)));
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.START);
+        card.setPadding(dp(16), dp(13), dp(16), dp(16));
         if (!badge.isEmpty()) {
-            TextView badgeView = pillText(badge, 11, ACCENT, RED_TINT, ACCENT);
-            LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(-2, dp(28));
+            TextView badgeView = text(badge, 11, MUTED, false);
+            LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(-2, -2);
             badgeParams.setMargins(dp(0), dp(0), dp(0), dp(8));
             card.addView(badgeView, badgeParams);
         }
         card.addView(text(item.getString("title"), 16, BLACK, true), new LinearLayout.LayoutParams(-1, -2));
         addSpace(card, 6);
         card.addView(text(item.getString("subtitle"), 12, MUTED, false), new LinearLayout.LayoutParams(-1, -2));
+        outer.addView(card, new LinearLayout.LayoutParams(-1, -2, 1));
+
         String target = item.optString("target", "shop");
-        card.setOnClickListener(v -> {
+        outer.setOnClickListener(v -> {
             trackAction("shortcut_card", metadata("target", target));
             openScreen(target);
         });
-        return card;
+        return outer;
+    }
+
+    private int quickActionRuleColor(String badge) {
+        if (badge.contains("خدمات")) return SECONDARY;
+        if (badge.contains("لوازم")) return WARNING;
+        return RED;
     }
 
     private View productCard(JSONObject item, boolean compact) throws Exception {
@@ -4050,7 +4316,7 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams categoryParams = new LinearLayout.LayoutParams(0, dp(30), 1);
             categoryParams.setMargins(dp(0), dp(0), dp(6), dp(0));
             meta.addView(category, categoryParams);
-            meta.addView(productAvailabilityPill(item), new LinearLayout.LayoutParams(-2, dp(30)));
+            meta.addView(productAvailabilityPill(item), new LinearLayout.LayoutParams(0, dp(30), 1));
             detail.addView(meta, new LinearLayout.LayoutParams(-1, -2));
             addSpace(detail, 8);
         }
@@ -4245,19 +4511,40 @@ public class MainActivity extends Activity {
 
     private View thumbnail(JSONObject item, int height) {
         String imageUrl = item.isNull("imageUrl") ? "" : item.optString("imageUrl", "").trim();
-        TextView fallback = text(item.optString("thumbnailText", "ETOK"), 18, WHITE, true);
-        fallback.setGravity(Gravity.CENTER);
-        fallback.setSingleLine(true);
-        fallback.setEllipsize(TextUtils.TruncateAt.END);
-        fallback.setBackground(rounded(item.optString("thumbnailColor", "#101114")));
-        fallback.setMinHeight(height);
+        int illustration = bikeIllustrationResource(item);
+
+        View fallback;
+        if (illustration != 0) {
+            FrameLayout studio = new FrameLayout(this);
+            GradientDrawable backdrop = new GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM, new int[]{STUDIO_TOP, STUDIO_BOTTOM});
+            backdrop.setCornerRadius(dp(10));
+            studio.setBackground(backdrop);
+            studio.setMinimumHeight(height);
+
+            ImageView art = new ImageView(this);
+            art.setImageResource(illustration);
+            art.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            art.setContentDescription(item.optString("title", ""));
+            int inset = Math.max(dp(6), height / 10);
+            art.setPadding(inset, inset, inset, inset);
+            studio.addView(art, new FrameLayout.LayoutParams(-1, -1));
+            fallback = studio;
+        } else {
+            TextView textFallback = text(item.optString("thumbnailText", "ETOK"), 18, WHITE, true);
+            textFallback.setGravity(Gravity.CENTER);
+            textFallback.setSingleLine(true);
+            textFallback.setEllipsize(TextUtils.TruncateAt.END);
+            textFallback.setBackground(rounded(item.optString("thumbnailColor", "#101114")));
+            textFallback.setMinHeight(height);
+            fallback = textFallback;
+        }
 
         if (imageUrl.isEmpty()) {
             return fallback;
         }
 
         FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(rounded(item.optString("thumbnailColor", "#101114")));
         frame.addView(fallback, new FrameLayout.LayoutParams(-1, -1));
 
         ImageView image = new ImageView(this);
@@ -4266,6 +4553,33 @@ public class MainActivity extends Activity {
         frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
         loadRemoteImage(image, imageUrl, height);
         return frame;
+    }
+
+    // Known bike SKUs get a drawn illustration on a neutral studio backdrop instead
+    // of a flat color-and-initials tile; everything else keeps the plain fallback.
+    private int bikeIllustrationResource(JSONObject item) {
+        switch (item.optString("id", "")) {
+            case "bike-city-e":
+                return R.drawable.ic_bike_city;
+            case "bike-etx-200":
+                return R.drawable.ic_bike_mtb;
+            case "bike-road-r7":
+                return R.drawable.ic_bike_road;
+            case "bike-kids-20":
+                return R.drawable.ic_bike_kids;
+            default:
+                break;
+        }
+
+        if (!"bikes".equals(item.optString("category", ""))) {
+            return 0;
+        }
+        String title = item.optString("title", "");
+        if (title.contains("کودک")) return R.drawable.ic_bike_kids;
+        if (title.contains("کوهستان")) return R.drawable.ic_bike_mtb;
+        if (title.contains("جاده")) return R.drawable.ic_bike_road;
+        if (title.contains("شهری")) return R.drawable.ic_bike_city;
+        return 0;
     }
 
     private void loadRemoteImage(ImageView image, String urlValue, int targetSizePx) {
@@ -4402,14 +4716,58 @@ public class MainActivity extends Activity {
         return button;
     }
 
-    private Button topIconButton(int iconResource) {
-        Button action = button("", false);
-        action.setTextColor(WHITE);
-        action.setTextSize(13);
-        action.setBackground(interactiveBackground(RED, 14, DARK_RED, 1));
-        action.setCompoundDrawablesWithIntrinsicBounds(iconResource, 0, 0, 0);
-        action.setCompoundDrawablePadding(dp(4));
-        return action;
+    private View topIconButton(int iconResource) {
+        FrameLayout container = new FrameLayout(this);
+        container.setFocusable(true);
+        container.setClickable(true);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(iconResource);
+        icon.setImageTintList(ColorStateList.valueOf(BLACK));
+        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        icon.setBackground(interactiveBackground(SURFACE, 18, BORDER, 1));
+        int iconPadding = dp(9);
+        icon.setPadding(iconPadding, iconPadding, iconPadding, iconPadding);
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(dp(36), dp(36));
+        iconParams.gravity = Gravity.CENTER;
+        container.addView(icon, iconParams);
+
+        TextView badge = new TextView(this);
+        badge.setTextSize(9.5f);
+        badge.setTextColor(WHITE);
+        badge.setTypeface(emphasisTypeface);
+        badge.setIncludeFontPadding(false);
+        badge.setGravity(Gravity.CENTER);
+        badge.setPadding(dp(3), 0, dp(3), 0);
+        badge.setMinWidth(dp(16));
+        GradientDrawable badgeShape = new GradientDrawable();
+        badgeShape.setShape(GradientDrawable.RECTANGLE);
+        badgeShape.setCornerRadius(dp(8));
+        badgeShape.setColor(RED);
+        badge.setBackground(badgeShape);
+        badge.setVisibility(View.GONE);
+        FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(-2, dp(16));
+        badgeParams.gravity = Gravity.TOP | Gravity.LEFT;
+        container.addView(badge, badgeParams);
+
+        container.setTag(badge);
+        attachPressAnimation(container);
+        return container;
+    }
+
+    private void updateIconBadge(View container, int count, String label, String countedSuffix) {
+        if (container == null) return;
+        Object tag = container.getTag();
+        if (tag instanceof TextView) {
+            TextView badge = (TextView) tag;
+            if (count > 0) {
+                badge.setText(persianDigits(count));
+                badge.setVisibility(View.VISIBLE);
+            } else {
+                badge.setVisibility(View.GONE);
+            }
+        }
+        container.setContentDescription(count > 0 ? label + "، " + persianDigits(count) + countedSuffix : label);
     }
 
     private void animateScreenEntrance(boolean animate) {
@@ -4481,17 +4839,11 @@ public class MainActivity extends Activity {
     }
 
     private void updateCartButton() {
-        if (cartButton != null) {
-            cartButton.setText(cartCount > 0 ? persianDigits(cartCount) : "");
-            cartButton.setContentDescription(cartCount > 0 ? "سبد خرید، " + persianDigits(cartCount) + " آیتم" : "سبد خرید");
-        }
+        updateIconBadge(cartButton, cartCount, "سبد خرید", " آیتم");
     }
 
     private void updateMessageButton() {
-        if (messagesButton != null) {
-            messagesButton.setText(unreadMessageCount > 0 ? persianDigits(unreadMessageCount) : "");
-            messagesButton.setContentDescription(unreadMessageCount > 0 ? "پیام‌ها، " + persianDigits(unreadMessageCount) + " پیام خوانده نشده" : "پیام‌ها");
-        }
+        updateIconBadge(messagesButton, unreadMessageCount, "پیام‌ها", " پیام خوانده نشده");
     }
 
     private void refreshMobileState() {

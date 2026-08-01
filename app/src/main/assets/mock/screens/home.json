@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "screenId": "home",
-  "version": 9,
+  "version": 10,
   "title": "EtokBike",
   "hideTitle": true,
   "sections": [
@@ -43,6 +43,53 @@
       },
       "layout": { "columns": 2 },
       "style": { "cardVariant": "compact" }
+    },
+    {
+      "id": "bundle-offers",
+      "type": "bundle_offers",
+      "data": {
+        "title": "پیشنهادهای ترکیبی",
+        "subtitle": "با هم بخرید، ارزان‌تر تمام شود",
+        "items": [
+          {
+            "id": "bundle-etx200-airfit",
+            "ribbon": "بسته کوهستان",
+            "title": "ETX 200 + کلاه ایمنی AirFit",
+            "subtitle": "دوچرخه کوهستان به‌همراه کلاه ایمنی، آماده تحویل و تنظیم رایگان",
+            "components": [
+              { "text": "MTB", "color": "#101114" },
+              { "text": "AIR", "color": "#D71920" }
+            ],
+            "priceValue": 27900000,
+            "price": "۲۷,۹۰۰,۰۰۰ تومان",
+            "wasPrice": "۲۹,۹۰۰,۰۰۰ تومان",
+            "saveLabel": "۲,۰۰۰,۰۰۰ تومان صرفه‌جویی",
+            "ctaLabel": "افزودن بسته به سبد",
+            "thumbnailText": "SET",
+            "thumbnailColor": "#B06A1A"
+          },
+          {
+            "id": "bundle-ecity-lock-pump",
+            "ribbon": "شروع شهری",
+            "title": "E-City + قفل زنجیری + تلمبه همراه",
+            "subtitle": "همه چیز برای اولین رکاب‌زنی روزانه، در یک خرید",
+            "components": [
+              { "text": "CITY", "color": "#D71920" },
+              { "text": "LOCK", "color": "#2B2C30" },
+              { "text": "PSI", "color": "#101114" }
+            ],
+            "priceValue": 21900000,
+            "price": "۲۱,۹۰۰,۰۰۰ تومان",
+            "wasPrice": "۲۳,۴۱۰,۰۰۰ تومان",
+            "saveLabel": "۱,۵۱۰,۰۰۰ تومان صرفه‌جویی",
+            "ctaLabel": "افزودن بسته به سبد",
+            "thumbnailText": "SET",
+            "thumbnailColor": "#B06A1A"
+          }
+        ]
+      },
+      "layout": { "presentation": "carousel" },
+      "style": { "cardVariant": "bundle" }
     },
     {
       "id": "featured-bikes",
